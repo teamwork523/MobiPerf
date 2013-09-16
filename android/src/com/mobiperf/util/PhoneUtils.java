@@ -757,6 +757,11 @@ public class PhoneUtils {
       Logger.e("UnknownHostException in checkDomainNameResolvable() "
                + e.getMessage());
       return DN_UNRESOLVABLE;
+    } catch (InvalidParameterException e) {
+      // catch failure from address lookup
+      Logger.e("InvalidParameterException in checkDomainNameResolvable() "
+               + e.getMessage());
+      return DN_UNRESOLVABLE;
     }
     return DN_UNKNOWN;
   }

@@ -21,17 +21,17 @@
 # with the newer version of python that you use locally and it will break your
 # code once it is uploaded to the development GAE instance.
 
-PYTHON=python2.5
+PYTHON=python
 APPCFG=`which appcfg.py`
 APPSERVER=`which dev_appserver.py`
 
 
-APP_ID=`cat app.yaml.tmpl | grep application | cut -d " " -f 2`
+APP_ID=`cat app.yaml | grep application | cut -d " " -f 2`
 APP_DOMAIN=appspot.com
 VERSION=`./set_version.sh`
 
 
-USER_EMAIL=`git config user.email`
+USER_EMAIL=teamwork523@gmail.com
 
 
 # These are used for downloading data from the production environment, and using
@@ -54,6 +54,6 @@ CLEAN=""
 #TODO(user) If having trouble with the datastore try uncommenting this.
 #CLEAN="-c"
 
-ADDRESS=""
+#ADDRESS=""
 #TODO(user) If you need to bind to a local address uncomment and adjust this.
-#ADDRESS="--address=192.168.1.128"
+ADDRESS="--address=192.168.1.148"

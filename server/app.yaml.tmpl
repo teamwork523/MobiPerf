@@ -1,4 +1,4 @@
-application: openmobiledata
+application: teamwork523
 version: __BUILDVERSION__
 runtime: python
 api_version: 1
@@ -21,6 +21,10 @@ handlers:
 
 - url: /validation/data
   script: gspeedometer/main.py
+  login: admin
+
+- url: /generateModelWorker
+  script: gspeedometer/controllers/smooth_prototype.py
   login: admin
 
 - url: /anonymous/.*

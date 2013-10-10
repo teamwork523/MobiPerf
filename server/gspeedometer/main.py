@@ -148,11 +148,42 @@ m.connect('/admin/archive/cron',
           controller='archive:Archive',
           action='ArchiveToGoogleStorage')
 
+# New RRCInference START
+# below are the path and handlers for RRC state inference START:
+# for getting computed RRC model from the server
+m.connect('/getRRCmodel',
+            controller='RRCstates:RRCStates',
+            action='getRRCmodel')
+
+# to upload the raw rrc data to server
+m.connect('/uploadRRCInference',
+            controller='RRCstates:RRCStates',
+            action='uploadRRCInference')
+
+# to handle taskqueue tasks
+m.connect('/generateModelWorker',
+            controller='smooth_prototype:ModelBuilder',
+            action='modelBuilder')
+            
+m.connect('/generateModel',
+            controller='RRCstates:RRCStates',
+            action='generateModel')
+
+# start is called by GAE when a backend needs to be started
+m.connect('/_ah/start',
+          controller='smooth_prototype:ModelBuilder',
+          action='StartHandler')
+
+m.connect('/backend/smooth_prototype',
+            controller='smooth_prototype:ModelBuilder',
+            action='modelBuilder')
+# New RRCInference END
+
 # For backend instance, give it something that won't
 # return a 500 error.
-m.connect('/_ah/start',
+"""m.connect('/_ah/start',
           controller='about:About',
-          action='About')
+          action='About')"""
 
 application = wsgi.WSGIApplication(m, debug=False)
 

@@ -259,3 +259,22 @@ in kbps (list of double)
 exceeding limit (boolean)
 (required) duration - Time to finish the task (double)
 (required) server_version - M-Lab server side code version (string)
+
+RRC Inference parameters
+
+(required) echo_host - Local server hostname for RTT measurement (string)
+(required) port - Local server port (int)
+(required) target - Target (IP or hostname) for extra tests (string)
+(required) rrc - Run RRC Inference test (boolean)
+(required) dns - Run Extra DNS lookup test (boolean)
+(required) http - Run Extra HTTP download test (boolean)
+(required) tcp - Run Extra TCP handshake test (boolean)
+(optional) giveup_threshhold - Maximum number of retry if background traffic exists (int)
+(optional) min - Min packet size for RRC inference packet (int)
+(optional) max - Max packet size for RRC inference packet (int)
+(optional) size - The number of intervals (every 0.5s) for inference (int)
+(optional) test_time_one - Default DCH trigger timer (int)
+(optional) test_time_two - Default FACH trigger timer (int)
+(optional) test_time_three - Default PCH trigger timer (int)
+
+RRC Inference value

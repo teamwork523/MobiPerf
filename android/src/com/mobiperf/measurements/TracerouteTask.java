@@ -173,15 +173,18 @@ public class TracerouteTask extends MeasurementTask {
     
     Logger.d("Starting traceroute on host " + task.target);
     
-    
     try {
       InetAddress hostInetAddr = InetAddress.getByName(target);
       hostIp = hostInetAddr.getHostAddress();
       // add support for ipv6
       int ipByteLen = hostInetAddr.getAddress().length;
-      task.pingExe = Util.pingExecutableBasedOnIPType(ipByteLen, parent); 
+      Logger.i("IP address length is " + ipByteLen);
+      Logger.i("IP is " + hostIp);
+      task.pingExe = Util.pingExecutableBasedOnIPType(ipByteLen, parent);
+      Logger.i("Ping executable is " + task.pingExe);
       if (task.pingExe == null) {
-        throw new MeasurementError("Unknown IP address byte length");
+        Logger.e("Ping Executable not found");
+        throw new MeasurementError("Ping Executable not found");
       }
     } catch (UnknownHostException e) {
       Logger.e("Cannont resolve host " + target);
@@ -197,7 +200,7 @@ public class TracerouteTask extends MeasurementTask {
        * */
       String command = Util.constructCommand(task.pingExe, "-n", "-t", ttl,
         "-s", task.packetSizeByte, "-c 1", target);
-
+      
       try {
         double rtt = 0;
         HashSet<String> hostsAtThisDistance = new HashSet<String>();
@@ -241,9 +244,16 @@ public class TracerouteTask extends MeasurementTask {
             Logger.i("Sleep interrupted between ping intervals");
           }
         }
-        // rtt = rtt / task.pingsPerHop;
-        rtt = (effectiveTask != 0) ? (rtt / effectiveTask) : 0;
-
+        rtt = (effectiveTask != 0) ? (rtt / effectiveTask) : -1;
+        if (rtt == -1) {
+          String Unreachablehost = "";
+          for (int i = 0; i < task.pingsPerHop; i++) {
+            Unreachablehost += "* ";
+          }
+          hostsAtThisDistance.add(Unreachablehost);
+        }
+        
+        Logger.i("RTT is " + rtt);
         hopHosts.add(new HopInfo(hostsAtThisDistance, rtt));
 
         // Process the extracted IPs of intermediate hops
@@ -253,7 +263,7 @@ public class TracerouteTask extends MeasurementTask {
           if (ip.compareTo(hostIp) == 0) {
             Logger.i(ttl + ": " + hostIp);
             Logger.i(" Finished! " + target + " reached in " + ttl + " hops");
-
+            
             success = true;
             PhoneUtils phoneUtils = PhoneUtils.getPhoneUtils();
             result = new MeasurementResult(phoneUtils.getDeviceInfo().deviceId, 
@@ -292,7 +302,8 @@ public class TracerouteTask extends MeasurementTask {
       this.progress = Math.min(Config.MAX_PROGRESS_BAR_VALUE, progress);
       broadcastProgressForUser(progress);
     }
-
+    
+    Logger.e("cannot perform traceroute to " + task.target);
     throw new MeasurementError("cannot perform traceroute to " + task.target);
   }
 
@@ -342,7 +353,7 @@ public class TracerouteTask extends MeasurementTask {
     String[] tokens = line.split(" ");
     // In most cases, the second element in the array is the IP
     String tempIp = tokens[1];
-    if (isValidIpv4Addr(tempIp)) {
+    if (isValidIpv4Addr(tempIp) || isValidIpv6Addr(tempIp)) {
       return tempIp;
     } else {
       for (int i = 0; i < tokens.length; i++) {
@@ -350,7 +361,7 @@ public class TracerouteTask extends MeasurementTask {
           // Examined already
           continue;
         } else {
-          if (isValidIpv4Addr(tokens[i])) {
+          if (isValidIpv4Addr(tokens[i]) || isValidIpv6Addr(tokens[i])) {
             return tokens[i];
           }
         }
@@ -371,7 +382,7 @@ public class TracerouteTask extends MeasurementTask {
             return false;
           }
         } catch (NumberFormatException e) {
-          Logger.d(ip + " is not a valid IP address");
+          Logger.d(ip + " is not a valid IPv4 address");
           return false;
         }
       }
@@ -380,6 +391,30 @@ public class TracerouteTask extends MeasurementTask {
     return false;
   }  
   
+  //Tells whether the string is an valid IPv6 address
+  private boolean isValidIpv6Addr(String ip) {
+    int max = Integer.valueOf("FFFF", 16);
+    String[] tokens = ip.split("\\:");
+    if (tokens.length <= 8) {
+      for (int i = 0; i < tokens.length; i++) {
+        try {
+          // zeros might get grouped
+          if (tokens[i].isEmpty())
+            continue;
+          int val = Integer.parseInt(tokens[i], 16); 
+          if (val < 0 || val > max) {
+            return false;
+          }
+        } catch (NumberFormatException e) {
+          Logger.d(ip + " is not a valid IPv6 address");
+          return false;
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+ 
   private class HopInfo {
     // The hosts at a given hop distance
     public HashSet<String> hosts;
@@ -415,7 +450,7 @@ public class TracerouteTask extends MeasurementTask {
     }
     public void run() {
       try {
-      	long startTime = System.currentTimeMillis();
+        long startTime = System.currentTimeMillis();
         exitStatus = process.waitFor();
         duration = System.currentTimeMillis() - startTime;
       } catch (InterruptedException e) {

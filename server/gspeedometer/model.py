@@ -25,7 +25,7 @@ from google.appengine.ext import db
 from gspeedometer import config
 from gspeedometer.helpers import acl
 from gspeedometer.helpers import util
-
+from google.appengine.runtime import DeadlineExceededError
 
 class DeviceInfo(db.Model):
   """Represents the static properties of a given device."""
@@ -95,6 +95,8 @@ class DeviceProperties(db.Model):
   app_version = db.StringProperty()
   # Timestamp
   timestamp = db.DateTimeProperty(auto_now_add=True)
+  # IP address
+  ip_address = db.StringProperty()
   # OS version
   os_version = db.StringProperty()
   # Location
@@ -226,6 +228,10 @@ class Measurement(db.Expando):
         return None
       taskid = self.task.key().id()
       return taskid
+    except DeadlineExceededError, e:
+      logging.info('deadline error in model%s',e)
+      self.task = None
+      return -1
     except db.ReferencePropertyResolveError:
       logging.exception('Cannot resolve task for measurement %s',
                         self.key().id())
@@ -342,3 +348,54 @@ class ValidationEntry(db.Model):
   measurement = db.ReferenceProperty(Measurement)
   # error types
   error_types = db.StringListProperty()
+
+class FilterEntry(db.Model):
+  """Represents filter information used for exporting data"""
+  username = db.UserProperty()
+  #nameofthe filter
+  filtername = db.StringProperty()
+  #list of checkbox/columns selected
+  columnlist = db.StringListProperty()
+  #format of the exportfile for the filter
+  fileformat = db.StringProperty()
+  
+class UserEntry(db.Model):
+  """Represents filter information used for exporting data"""
+  username = db.UserProperty() 
+  #ID associated with each user login
+  userid = db.StringProperty()
+  
+class RRCStateModel(db.Model):
+  """Represents the processed RRC State model information"""
+  #device IMEI number
+  phone_id = db.StringProperty() 
+  test_id = db.IntegerProperty()
+  timestamp = db.DateTimeProperty()
+  segment_begin = db.IntegerProperty()
+  segment_end = db.IntegerProperty()
+  avg = db.FloatProperty()
+  small = db.BooleanProperty()    
+  username = db.UserProperty()
+  label = db.StringProperty()
+  network_type = db.StringProperty()
+
+class RRCInferenceRawData(db.Model):
+  """Represents the processed RRC State model information"""
+  username = db.UserProperty()
+  #device IMEI number
+  phone_id = db.StringProperty()
+      
+  #TODO: get the description for each property
+  test_id = db.IntegerProperty()
+
+  timestamp = db.DateTimeProperty()
+  network_type = db.StringProperty()
+  rtt_low = db.IntegerProperty()
+  rtt_high = db.IntegerProperty()
+  lost_low = db.IntegerProperty()
+  lost_high = db.IntegerProperty()
+  signal_low = db.IntegerProperty()
+  signal_high = db.IntegerProperty()
+  error_low = db.IntegerProperty()
+  error_high = db.IntegerProperty()   
+  time_delay = db.IntegerProperty()

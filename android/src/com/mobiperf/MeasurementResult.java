@@ -28,6 +28,8 @@ import com.mobiperf.measurements.UDPBurstTask;
 import com.mobiperf.measurements.UDPBurstTask.UDPBurstDesc;
 import com.mobiperf.measurements.TCPThroughputTask;
 import com.mobiperf.measurements.TCPThroughputTask.TCPThroughputDesc;
+import com.mobiperf.measurements.RRCTask;
+import com.mobiperf.measurements.RRCTask.RRCDesc;
 import com.mobiperf.util.MeasurementJsonConvertor;
 import com.mobiperf.util.PhoneUtils;
 import com.mobiperf.util.Util;
@@ -80,7 +82,12 @@ public class MeasurementResult {
   public void addResult(String resultType, Object resultVal) {
     this.values.put(resultType, MeasurementJsonConvertor.toJsonString(resultVal));
   }
-  
+
+  public void addResultString(String resultType, String resultVal) {
+    Logger.i("addResult: " + resultVal);
+    this.values.put(resultType,resultVal);
+  }
+
   /* Returns a string representation of the result */
   @Override
   public String toString() {
@@ -100,6 +107,8 @@ public class MeasurementResult {
         getUDPBurstResult(printer, values);
       } else if (type == TCPThroughputTask.TYPE) {
         getTCPThroughputResult(printer, values);
+      } else if (type == RRCTask.TYPE) {
+        getRRCResult(printer, values);
       } else {
         Logger.e("Failed to get results for unknown measurement type " + type);
       }
@@ -294,7 +303,22 @@ public class MeasurementResult {
       printer.println("Failed");
     }
   }
-  
+
+  private void getRRCResult(StringBuilderPrinter printer,
+                            HashMap<String, String> values) {
+		RRCDesc desc = (RRCDesc) parameters;
+    printer.println("[RRC]");
+    printer.println("Target: " + desc.target);
+    printer.println("Timestamp: " +
+      Util.getTimeStringFromMicrosecond(properties.timestamp));
+
+    if (success && desc != null) {
+      desc.printme(printer);
+    } else {
+      printer.println("Failed");
+    }
+  }
+
   /**
    * Removes the quotes surrounding the string. If |str| is null, returns null.
    */

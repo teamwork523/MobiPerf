@@ -161,7 +161,7 @@ public class PingTask extends MeasurementTask {
     
     try {
       Logger.i("running ping command");
-      /* Prevents the phone from going to low-power mode where WiFi turns off */
+      // Prevents the phone from going to low-power mode where WiFi turns off
       return executePingCmdTask(ipByteLength);
     } catch (MeasurementError e) {
       try {

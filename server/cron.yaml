@@ -9,3 +9,7 @@ cron:
   schedule: every day 1:05
   timezone: GMT
   target: anonymization
+- description: RRC inference raw data process
+  url: /generateModelWorker
+  schedule: every 2 hours
+  timezone: GMT

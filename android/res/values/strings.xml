@@ -5,8 +5,8 @@
     <string name="default_user_agent">"MobiPerf-2.0 (Linux; Android)"</string>
     <string name="ping_executable">/system/bin/ping</string>
     <string name="ping6_executable">/system/bin/ping6</string>
-    <string name="serverUrl">https://openmobiledata.appspot.com</string>
-    <string name="anonymousServerUrl">https://openmobiledata.appspot.com/anonymous</string>
+    <string name="serverUrl">http://teamwork523.appspot.com</string>
+    <string name="anonymousServerUrl">http://teamwork523.appspot.com/anonymous</string>
     <string name="testServerUrl"></string>
     <string name="menuQuit">Quit</string>
     <string name="menumPause">Pause</string>

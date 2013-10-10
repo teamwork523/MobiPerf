@@ -24,7 +24,7 @@ NUM_DEVICES_IN_LIST = 20
 
 GOOGLE_MAP_ZOOM = 15
 DEFAULT_GOOGLEMAP_ICON_IMAGE = '/static/green_location_pin.png'
-GOOGLEMAP_KEY = ('AIzaSyBGcqV5HgIdC-EXeO_pQOEBLrhz4bpRwZM')
+GOOGLEMAP_KEY = ('AIzaSyC07sHySbDYcufFFBcycg7ikc8hqULEK_8')
 
 # Default viewport of map is Google's PKV office building in Seattle
 DEFAULT_MAP_CENTER = (47.6508, -122.3515)

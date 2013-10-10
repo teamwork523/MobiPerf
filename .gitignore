@@ -29,3 +29,6 @@ android/*/*/.DS_Store
 
 # backup file
 *~
+
+# upload file
+upload.py

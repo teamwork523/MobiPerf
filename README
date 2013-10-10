@@ -278,3 +278,8 @@ RRC Inference parameters
 (optional) test_time_three - Default PCH trigger timer (int)
 
 RRC Inference value
+
+(required) dns - A list of DNS lookup latency (ms) at corresponding inferred RRC state (list of int)
+(required) http - A list of HTTP download latency (ms) at corresponding inferred RRC state (list of int)
+(required) tcp - A list of TCP handshake latency (ms) at corresponding inferred RRC state (list of int)
+(required) times - A list of waiting time from DCH to reach certain RRC state (list of int)

@@ -14,7 +14,6 @@
  */
 package com.mobiperf;
 
-import com.mobiperf.measurements.RRCTask;
 import com.mobiperf.util.MeasurementJsonConvertor;
 import com.mobiperf.util.PhoneUtils;
 
@@ -59,9 +58,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.ExecutionException;
@@ -174,28 +171,6 @@ public class Checkin {
     }
   }
   
-  public void uploadPhoneResult(RRCTask.RrcTestData data) {
-    String networktype = phoneUtils.getNetwork();
-    DeviceInfo info = phoneUtils.getDeviceInfo();
-
-    String[] parameters = data.toJSON(networktype, info.deviceId);
-
-    try {
-      for (String parameter: parameters) {
-        String response = serviceRequest("postphonemeasurement",
-                                         parameter);
-        JSONObject responseJson = new JSONObject(response);
-        if (!responseJson.getBoolean("success")) {
-          Logger.e("Failure posting phone measurement result");
-        }
-      }
-    } catch (JSONException e) {
-      Logger.e("JSON exception while uploading measurement result");
-    } catch (IOException e) {
-      Logger.e("IO exception while uploading measurement result");
-    }       
-  }
-
   public void uploadMeasurementResult(Vector<MeasurementResult> finishedTasks)
       throws IOException {    
     JSONArray resultArray = new JSONArray();
@@ -222,107 +197,8 @@ public class Checkin {
     Logger.i("TaskSchedule.uploadMeasurementResult() complete");
     sendStringMsg("Result upload complete.");
   }
-
-  public void initializeForRRC() {
-    Logger.w("Fetching cookie...");
-    getCookie();
-    int NUM_RETRIES = 5;
-    int retry_len = 1000;
-    for (int i = 0; i < NUM_RETRIES; i++) {
-      try {
-        if (accountSelector != null && authCookie!= null && accountSelector.getCheckinFuture() != null) {
-          Logger.w("Cookie fetched!");
-          return;
-        }
-        Thread.sleep(retry_len * i);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
-    }
-  }
   
-  /**
-   * Retrieves the RRC state inference model-based times from the server.
-   * Don't need to pass it anything because the model used is based entirely on the device parameters.
-   * @return The times for the extra tests in RRCTask to run
-   * @throws IOException
-   */
-  public int[] getModel() throws IOException {
-    ArrayList<Integer> values = new ArrayList<Integer>();
-    JSONObject parameters = new JSONObject();
-    DeviceInfo info = phoneUtils.getDeviceInfo();
-
-    try {
-        parameters.put("phone_id", info.deviceId);
-    } catch (NumberFormatException e1) {
-      e1.printStackTrace();
-    } catch (JSONException e1) {
-      e1.printStackTrace();
-    }
-
-    Logger.w("getting model from server");
-    String response = serviceRequest("/getRRCmodel", parameters.toString());
-    Logger.w("response" + response.toString());
-        
-    try {
-      JSONObject responseJson = new JSONObject(response);
-      Logger.w("response JSON" + responseJson.toString());
-
-      JSONArray jsonarray = responseJson.getJSONArray("measurement_points");
-
-      Logger.w("Model:" + jsonarray.toString());
-      values.ensureCapacity(jsonarray.length());
-
-      for (int i = 0; i < jsonarray.length(); i++) {
-        Double value = (Double) jsonarray.get(i);
-        values.add(value.intValue());
-      }
-    } catch (JSONException e) {
-      e.printStackTrace();
-      throw new IOException(e.getMessage());
-    } catch (Exception e2) {
-      e2.printStackTrace(); 
-    }
-
-    int[] times = new int[values.size()];
-    Iterator<Integer> iterator = values.iterator();
-    for (int i = 0; i < times.length; i++) {
-      times[i] = iterator.next().intValue();
-    }
-    return times;
-  }
-
-  /**
-   * Send the RRC data to the server in order to update the model
-   * 
-   * @param data
-   * @throws IOException 
-   */
-  public void updateModel(RRCTask.RrcTestData data) throws IOException {
-    DeviceInfo info = phoneUtils.getDeviceInfo();
-    String network_id = phoneUtils.getNetwork();
-    String[] parameters = data.toJSON(network_id, info.deviceId);
-    try {
-      for (String parameter: parameters) {
-        Logger.w(parameter);
-        String response = serviceRequest("uploadRRCInference", parameter);
-        Logger.w(response);
-
-        Logger.i("TaskSchedule.uploadMeasurementResult() complete");
-        sendStringMsg("Result upload complete.");
-      }
-      JSONObject parameter = new JSONObject();
-      parameter.put("phone_id",  info.deviceId);
-      serviceRequest("generateModel", parameter.toString());
-    } catch (IOException e) {
-      throw new IOException(e.getMessage());
-    } catch (NumberFormatException e) {
-      e.printStackTrace();
-    } catch (JSONException e) {
-      e.printStackTrace();
-    }
-  }
-
+  
   /**
    * Used to generate SSL sockets.
    */

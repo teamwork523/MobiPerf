@@ -5,8 +5,8 @@
     <string name="default_user_agent">"MobiPerf-2.0 (Linux; Android)"</string>
     <string name="ping_executable">ping</string>
     <string name="ping6_executable">ping6</string>
-    <string name="serverUrl">http://teamwork523.appspot.com</string>
-    <string name="anonymousServerUrl">http://teamwork523.appspot.com/anonymous</string>
+    <string name="serverUrl">https://openmobiledata.appspot.com</string>
+    <string name="anonymousServerUrl">https://openmobiledata.appspot.com/anonymous</string>
     <string name="testServerUrl"></string>
     <string name="menuQuit">Quit</string>
     <string name="menumPause">Pause</string>
@@ -23,7 +23,9 @@
     <string name="tracerouteTargetLabel">Target hostname/IP?</string>
     <string name="UDPBurstTargetLabel">Server name/IP?</string>
     <string name="UDPBurstDirLabel">Direction:</string>
+    <string name="UDPBurstIntervalLabel">Interval(ms): </string> <!-- Hongyi: add interval input label-->
     <string name="UDPBurstTargetHint">www.google.com</string>
+    <string name="UDPBurstIntervalHint">256</string> <!-- Hongyi: default interval -->
     <string name="httpUrlHint">www.google.com</string>
     <string name="httpUrlLabel">URL Address</string>
     <string name="checkinIntervalPrefKey">KEY_CHECKEDIN_INTERVAL</string>

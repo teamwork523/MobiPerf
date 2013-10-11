@@ -44,8 +44,6 @@ import com.mobiperf.measurements.UDPBurstTask;
 import com.mobiperf.measurements.UDPBurstTask.UDPBurstDesc;
 import com.mobiperf.measurements.TCPThroughputTask;
 import com.mobiperf.measurements.TCPThroughputTask.TCPThroughputDesc;
-import com.mobiperf.measurements.RRCTask;
-import com.mobiperf.measurements.RRCTask.RRCDesc;
 import com.mobiperf.util.MLabNS;
 import com.mobiperf.R;
 
@@ -81,10 +79,7 @@ public class MeasurementCreationActivity extends Activity {
     Spinner spinner = (Spinner) findViewById(R.id.measurementTypeSpinner);
     spinnerValues = new ArrayAdapter<String>(this.getApplicationContext(), R.layout.spinner_layout);
     for (String name : MeasurementTask.getMeasurementNames()) {
-      // adding list of visible measurements
-      if (MeasurementTask.getVisibilityForMeasurementName(name)) {
-        spinnerValues.add(name);
-      }
+      spinnerValues.add(name);
     }
     spinnerValues.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
     spinner.setAdapter(spinnerValues);
@@ -152,14 +147,10 @@ public class MeasurementCreationActivity extends Activity {
       this.findViewById(R.id.dnsTargetView).setVisibility(View.VISIBLE);
     } else if (this.measurementTypeUnderEdit.compareTo(UDPBurstTask.TYPE) == 0) {
       this.findViewById(R.id.UDPBurstDirView).setVisibility(View.VISIBLE);
+      this.findViewById(R.id.UDPBurstIntervalView).setVisibility(View.VISIBLE);
     } else if (this.measurementTypeUnderEdit.compareTo(TCPThroughputTask.TYPE) == 0) {
       this.findViewById(R.id.TCPThroughputDirView).setVisibility(View.VISIBLE);
-    } 
-    /*
-     * Currently RRC measurement could only be scheduled from the server side
-     else if (this.measurementTypeUnderEdit.compareTo(RRCTask.TYPE) ==0 ) {
-      this.findViewById(R.id.rrcTargetView).setVisibility(View.VISIBLE);
-	  }*/
+    }
   }
 
   private void hideKyeboard(EditText textBox) {
@@ -247,8 +238,16 @@ public class MeasurementCreationActivity extends Activity {
           Map<String, String> params = new HashMap<String, String>();
           // TODO(dominic): Support multiple servers for UDP. For now, just
           // m-lab.
-          params.put("target", MLabNS.TARGET);
+          params.put("target", "1.michigan.mlab2.ord01.measurement-lab.org");
+          //params.put("target", MLabNS.TARGET);
           params.put("direction", udpDir);
+          params.put("packet_burst", "16");
+          
+          // Get UDP Burst interval
+          EditText UDPBurstIntervalText = (EditText) findViewById(R.id.UDPBurstIntervalText);
+          params.put("udp_interval", UDPBurstIntervalText.getText().toString());
+          //params.put("udp_interval", "1");
+          
           UDPBurstDesc desc = new UDPBurstDesc(null,
               Calendar.getInstance().getTime(),
               null,
@@ -260,19 +259,19 @@ public class MeasurementCreationActivity extends Activity {
           newTask =
               new UDPBurstTask(desc, MeasurementCreationActivity.this.getApplicationContext());
         } else if (measurementTypeUnderEdit.equals(TCPThroughputTask.TYPE)) {
-          Map<String, String> params = new HashMap<String, String>();
-          params.put("target", MLabNS.TARGET);
-          params.put("dir_up", tcpDir);
-          TCPThroughputDesc desc = new TCPThroughputDesc(null,
-            Calendar.getInstance().getTime(),
-            null,
-            Config.DEFAULT_USER_MEASUREMENT_INTERVAL_SEC,
-            Config.DEFAULT_USER_MEASUREMENT_COUNT,
-            MeasurementTask.USER_PRIORITY,
-            params);
-          newTask = new TCPThroughputTask(desc, 
-                        MeasurementCreationActivity.this.getApplicationContext());
-          showLengthWarning = true;
+            Map<String, String> params = new HashMap<String, String>();
+            params.put("target", MLabNS.TARGET);
+            params.put("dir_up", tcpDir);
+            TCPThroughputDesc desc = new TCPThroughputDesc(null,
+              Calendar.getInstance().getTime(),
+              null,
+              Config.DEFAULT_USER_MEASUREMENT_INTERVAL_SEC,
+              Config.DEFAULT_USER_MEASUREMENT_COUNT,
+              MeasurementTask.USER_PRIORITY,
+              params);
+            newTask = new TCPThroughputTask(desc, 
+                          MeasurementCreationActivity.this.getApplicationContext());
+            showLengthWarning = true;
         }
 
         if (newTask != null) {

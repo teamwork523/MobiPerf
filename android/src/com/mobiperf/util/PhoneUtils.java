@@ -139,6 +139,13 @@ public class PhoneUtils {
   protected PhoneUtils(Context context) {
     this.context = context;
     broadcastReceiver = new PowerStateChangeReceiver();
+    // TODO (Haokun): delete after debugging
+    if (broadcastReceiver == null) {
+    	Logger.w("PhoneUtils: broadcast receiver is null!!!!");
+    }
+    if (globalContext == null) {
+    	Logger.w("PhoneUtils: globalContext is null!!!!");
+    }
     // Registers a receiver for battery change events.
     Intent powerIntent = globalContext.registerReceiver(broadcastReceiver, 
         new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
@@ -757,6 +764,11 @@ public class PhoneUtils {
       Logger.e("UnknownHostException in checkDomainNameResolvable() "
                + e.getMessage());
       return DN_UNRESOLVABLE;
+    } catch (InvalidParameterException e) {
+      // Fail to resolve domain name
+    	Logger.e("InvalidParameterException in checkIPCompatibility(). "
+               + e.getMessage());
+    	return DN_UNRESOLVABLE;
     }
     return DN_UNKNOWN;
   }
@@ -811,6 +823,8 @@ public class PhoneUtils {
     String networkType = PhoneUtils.getPhoneUtils().getNetwork();
     String ipConnectivity = getIpConnectivity();
     String dnResolvability = getDnResolvability();
+    //String ipConnectivity = IP_TYPE_IPV4_ONLY;
+    //String dnResolvability = IP_TYPE_IPV4_ONLY;
     Logger.w("IP connectivity is " + ipConnectivity);
     Logger.w("DN resolvability is " + dnResolvability);
     if (activeNetwork != null) {

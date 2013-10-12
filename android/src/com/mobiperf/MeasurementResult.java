@@ -315,7 +315,9 @@ public class MeasurementResult {
       Util.getTimeStringFromMicrosecond(properties.timestamp));
 
     if (success && desc != null) {
-      desc.printme(printer);
+      if (desc.RESULT_VISIBILITY) {
+        desc.printme(printer);
+      }
     } else {
       printer.println("Failed");
     }

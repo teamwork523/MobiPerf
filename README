@@ -278,6 +278,7 @@ RRC Inference parameters
 (optional) test_time_one - Default DCH trigger timer (int)
 (optional) test_time_two - Default FACH trigger timer (int)
 (optional) test_time_three - Default PCH trigger timer (int)
+(optional) result_visibility - Whether RRC result visible to users (boolean)
 
 RRC Inference value
 

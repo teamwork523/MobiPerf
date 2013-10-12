@@ -237,6 +237,7 @@ class MeasurementType:
           ('tcp', 'Run Extra TCP handshake test (true/false)'),
           ('test_time_one', 'Default DCH trigger timer (sec)'), 
           ('test_time_two', 'Default FACH trigger timer (sec)'), 
-          ('test_time_three', 'Default PCH trigger timer (sec)')]))
+          ('test_time_three', 'Default PCH trigger timer (sec)'),
+          ('result_visibility', 'Whether RRC result visible to users (true/false)')]))
     else:
       raise RuntimeError('Invalid measurement type: %s' % measurement_type)

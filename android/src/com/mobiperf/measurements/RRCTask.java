@@ -75,6 +75,7 @@ public class RRCTask extends MeasurementTask {
     private static int PORT = 50000;
     private static String ECHO_HOST = "ep2.eecs.umich.edu";
     
+    public int GRANULARITY = 500;
     int MIN = 0;
     int MAX = 1024;
     int size = 30;
@@ -93,6 +94,9 @@ public class RRCTask extends MeasurementTask {
     boolean HTTP = true;
     boolean RRC = true;
 
+    // Whether RRC result is visible to users
+    public boolean RESULT_VISIBILITY = false;
+    
     int baseline_max = -1;
     int baseline_min = -1;    
 
@@ -114,13 +118,6 @@ public class RRCTask extends MeasurementTask {
     }
     
     public MeasurementResult getResults(MeasurementResult result) {
-      // TODO (Haokun): delete after debugging
-    	Logger.w("Get results starts!!!");
-    	Logger.w("RRC inference time length is " + times.length);
-    	Logger.w("HTTP length is " + http_test.length);
-    	Logger.w("TCP length is " + tcp_test.length);
-    	Logger.w("DNS length is " + dns_test.length);
-
     	/*
       JSONArray http = new JSONArray();
       JSONArray tcp = new JSONArray();
@@ -139,7 +136,7 @@ public class RRCTask extends MeasurementTask {
       if (DNS) result.addResultString("dns", dns.toString());
       result.addResult("times", time_array.toString());*/
     	
-    	if (HTTP) result.addResult("http", http_test);
+      if (HTTP) result.addResult("http", http_test);
       if (TCP) result.addResult("tcp", tcp_test);
       if (DNS) result.addResult("dns", dns_test);
       result.addResult("times", times);
@@ -148,31 +145,60 @@ public class RRCTask extends MeasurementTask {
     }
     
     public void printme(StringBuilderPrinter printer) {
-      String toprint = "\nExtra task: HTTP\n";
+      String DEL = "\t", toprint = DEL + DEL;
+      for (int i = 1; i <= times.length; i++) {
+        toprint += DEL + " | state" + i; 
+      }
+      toprint += " |";
+      int oneLineLen = toprint.length();
+      toprint += "\n";
+      // seperator
+      for (int i = 0; i < oneLineLen; i++) {
+      	toprint += "-";
+      }
+      toprint += "\n";
       if (HTTP) {
+        toprint += "HTTP (ms)" + DEL;
         for (int i = 0; i < http_test.length; i++) {
-          toprint += " " + Integer.toString(http_test[i]);
+          toprint += DEL + " | " + Integer.toString(http_test[i]);
         }
-        printer.println(toprint);       
+        toprint += " |\n";
+        for (int i = 0; i < oneLineLen; i++) {
+          toprint += "-";
+        }
+        toprint += "\n";
       }
-      toprint = "\nExtra task: DNS\n";
+      
       if (DNS) {
+      	toprint += "DNS (ms)" + DEL;
         for (int i = 0; i < dns_test.length; i++) {
-          toprint += " " + Integer.toString(dns_test[i]);
+          toprint += DEL + " | " + Integer.toString(dns_test[i]);
         }
-        printer.println(toprint);
+        toprint += " |\n";
+        for (int i = 0; i < oneLineLen; i++) {
+          toprint += "-";
+        }
+        toprint += "\n";
       }
-      toprint = "\nExtra task: TCP\n";
+
       if (TCP) {
+      	toprint += "TCP (ms)" + DEL;
         for (int i = 0; i < tcp_test.length; i++) {
-          toprint += " " + Integer.toString(tcp_test[i]);
+          toprint += DEL + " | " + Integer.toString(tcp_test[i]);
         }
-        printer.println(toprint);
+        toprint += " |\n";
+        for (int i = 0; i < oneLineLen; i++) {
+          toprint += "-";
+        }
+        toprint += "\n";
       }
-      toprint = "\nInferred timers:\n"; 
+
+      toprint += "Timers (s)"; 
       for (int i = 0; i < times.length; i++) {
-        toprint += " " + Integer.toString(times[i]);
+        double curTime = (double)times[i] * (double)GRANULARITY / 1000.0;
+        toprint += DEL + " | " + String.format("%.2f", curTime);
       }
+      toprint += " |\n";
       printer.println(toprint);
     }
 
@@ -243,6 +269,11 @@ public class RRCTask extends MeasurementTask {
           this.RRC = Boolean.parseBoolean(val);
         }
         Logger.d("param: RRC "+ this.RRC);
+        if ((val = params.get("result_visibility")) != null
+                && val.length() > 0) {
+          this.RESULT_VISIBILITY = Boolean.parseBoolean(val);
+        }
+        Logger.d("param: visibility "+ this.RESULT_VISIBILITY);
         if ((val = params.get("giveup_threshhold")) != null
             && val.length() > 0 && Integer.parseInt(val) > 0) {
           this.GIVEUP_THRESHHOLD = Integer.parseInt(val);
@@ -314,9 +345,6 @@ public class RRCTask extends MeasurementTask {
     }
     
     public void setDns(int i, int val) throws MeasurementError {
-    	// TODO (Haokun): delete after debugging
-    	Logger.w("setDns: dns_test length is " + dns_test.length);
-    	Logger.w("setDns: current i is " + i);
       if (!extra) {
         throw new MeasurementError("Data class not initialized");
       }
@@ -669,7 +697,7 @@ public class RRCTask extends MeasurementTask {
           InetAddress serverAddr; 
           serverAddr = InetAddress.getByName(desc.echo_host); 
               sendPacket(serverAddr, desc.MAX, null, desc);             
-          waitTime(times[i] * 500, true);
+          waitTime(times[i] * desc.GRANULARITY, true);
         } catch (InterruptedException e1) {
           e1.printStackTrace();
         } catch (UnknownHostException e) {
@@ -977,7 +1005,7 @@ public class RRCTask extends MeasurementTask {
   }
   
   private long[] inferDemotionHelper(InetAddress serverAddr, int wait, RrcTestData data, RRCDesc desc, PhoneUtils utils) throws IOException, InterruptedException {
-    return inferDemotionHelper(serverAddr, wait, data, desc.MAX, desc.MIN, desc.port, 500, wait, utils); 
+    return inferDemotionHelper(serverAddr, wait, data, desc.MAX, desc.MIN, desc.port, desc.GRANULARITY, wait, utils); 
   }
   
 

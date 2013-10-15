@@ -49,20 +49,9 @@ class RRCStates(webapp.RequestHandler):
         logging.info('Inside generateModel: input param: %s', self.request.body)        
         getReqParam = json.loads(self.request.body)         
         
-        if config.BACKEND_ONLY:
-            #create a backend instance here to process all these raw data
-            payload = urllib.urlencode({'phone_id': getReqParam['phone_id']})
-            url = '%s/backend/smooth_prototype' % (backends.get_url('smoothprototype'))
-            logging.info('backend is %s',backends.get_url('smoothprototype'))
-            #url_renamed = 'http://rrc-gae.smoothprototype.stateofrest.appspot.com/backend/smooth_prototype'
-            logging.info('url_renamed %s',url)
-            result =  urlfetch.fetch(url, method='POST',payload=payload)
-            logging.info('result returned from fetch is %s',result.status_code)
-        elif config.TASKQUEUE_ONLY:
-            # Add the task to the default queue.
-            taskqueue.add(url='/generateModelWorker', params={'phone_id': getReqParam['phone_id']})
-        
-        
+        # Add the task to the default queue.
+        taskqueue.add(url='/rrc/generateModelWorker', params={'phone_id': getReqParam['phone_id']})
+
         return
         
     def getRRCmodel(self, **unused_args):
@@ -166,7 +155,7 @@ class RRCStates(webapp.RequestHandler):
         elif config.TASKQUEUE_ONLY:
             # Add the task to the default queue.
             logging.info('executing only taskqueue')
-            taskqueue.add(url='/generateModelWorker', params={'phone_id': 123456054340594})
+            taskqueue.add(url='/rrc/generateModelWorker', params={'phone_id': 123456054340594})
         
         
     def temp_getRRCmodel(self, **unused_args):

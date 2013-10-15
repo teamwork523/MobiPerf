@@ -235,9 +235,9 @@ class MeasurementType:
           ('dns', 'Run Extra DNS lookup test (true/false)'),
           ('http', 'Run Extra HTTP download test (true/false)'),
           ('tcp', 'Run Extra TCP handshake test (true/false)'),
-          ('test_time_one', 'Default DCH trigger timer (sec)'), 
-          ('test_time_two', 'Default FACH trigger timer (sec)'), 
-          ('test_time_three', 'Default PCH trigger timer (sec)'),
+          ('state1_demotion_timer', 'Default DCH trigger timer (sec)'), 
+          ('state2_demotion_timer', 'Default FACH trigger timer (sec)'), 
+          ('state3_demotion_timer', 'Default PCH trigger timer (sec)'),
           ('result_visibility', 'Whether RRC result visible to users (true/false)')]))
     else:
       raise RuntimeError('Invalid measurement type: %s' % measurement_type)

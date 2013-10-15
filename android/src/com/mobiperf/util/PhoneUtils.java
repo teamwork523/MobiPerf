@@ -303,7 +303,8 @@ public class PhoneUtils {
 
     int networkType = telephonyManager.getNetworkType();
     if (networkType < NETWORK_TYPES.length) {
-      return NETWORK_TYPES[telephonyManager.getNetworkType()];
+      // Network type might get changed if getNetwokrType() called twice
+      return NETWORK_TYPES[networkType];
     } else {
       return "Unrecognized: " + networkType;
     }

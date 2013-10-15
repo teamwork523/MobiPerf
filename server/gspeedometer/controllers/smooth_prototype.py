@@ -48,7 +48,7 @@ class ModelBuilder(webapp.RequestHandler):
     logging.info('POST MEthod of smooth proto GET called!!!!!!!1')
 
   def modelBuilder(self, **unused_args):
-    """Handler for /generateModelWorker"""
+    """Handler for /rrc/generateModelWorker"""
     logging.info('Backend ModelBuilder Called!!!')
 
     phone_id = self.request.get('phone_id')
@@ -552,78 +552,78 @@ class ModelBuilder(webapp.RequestHandler):
           labels.append("DCH (high RTT) ") # This label may not actually be that useful in general
         state = STATE_DCH
 
-        # Then, our options are continue in DCH/Anomalous, or transition to FACH/anomalous-FACH or DCH
-        elif (state == STATE_DCH):
-          # DCH is characterized by small RTTs that are similar
-          if (small_rtt < DCH_SMALL_RTT_MAX) and (big_rtt < DCH_BIG_RTT_MAX) and (float(big_rtt)/small_rtt < 2):
-            labels.append("Anomalous-DCH") # We should only see one DCH-like state
-          # FACH is characterized by moderate RTTs and significant differences between RTTs based on packet size
-          elif (small_rtt < FACH_SMALL_RTT_MAX) and (big_rtt < FACH_BIG_RTT_MAX) and (float(big_rtt)/small_rtt > 1.75):
-            labels.append("FACH")
-            state = STATE_FACH
-          # FACH transitions are characterized by very high RTTs and short segments
-          elif (small_rtt > FACH_ANOMALOUS_SMALL_MIN or big_rtt > FACH_ANOMALOUS_BIG_MIN) and segment_len < 8:
-            labels.append("Anomalous-FACH")
-            state = STATE_FACH
-          # PCH is characterized by high RTTs, though not as high as FACH transitions
-          elif small_rtt > PCH_SMALL_MIN and big_rtt > PCH_BIG_MIN:
-            labels.append("PCH")
-            pch_state_indices.append(i)
-            state = STATE_PCH
-          else:
-            labels.append("Anomalous")
-    # From FACH, we can continue to be in FACH, can be an an anomalous FACH state, or can go to PCH.
-        elif (state == STATE_FACH):
-          if (small_rtt < FACH_SMALL_RTT_MAX) and (big_rtt < FACH_BIG_RTT_MAX) and (float(big_rtt)/small_rtt > 1.75):
-            labels.append("FACH")
-            state = STATE_FACH
-          elif small_rtt > FACH_ANOMALOUS_SMALL_MIN or big_rtt > FACH_ANOMALOUS_BIG_MIN and segment_len < 8:
-            labels.append("Anomalous-FACH")
-            state = STATE_FACH
-          elif small_rtt > PCH_SMALL_MIN and big_rtt > PCH_BIG_MIN:
-            labels.append("PCH")
-            state = STATE_PCH
-            pch_state_indices.append(i)
-            # Note: Anomalous FACH, i.e. transition behavior, should always be less than PCH.  
-            # If not, it needs correcting.
-            if (labels[-2] == "Anomalous-FACH"):
-              last_small_rtt = model_small[i-1][AVG_INDEX]
-              last_big_rtt = model_large[i-1][AVG_INDEX]
-              if last_small_rtt < small_rtt and last_big_rtt < big_rtt*1.5 and float(last_big_rtt)/last_small_rtt > 1.75:
-                labels[-2] = "FACH"
-          else:
-            labels.append("Anomalous")
-          has_fach = True
-        # From PCH, we have to stay in PCH.
-        elif (state == STATE_PCH):
-          # if there are two PCH states, one is anomalous.  Go through and mark the biggest ones.
+      # Then, our options are continue in DCH/Anomalous, or transition to FACH/anomalous-FACH or DCH
+      elif (state == STATE_DCH):
+        # DCH is characterized by small RTTs that are similar
+        if (small_rtt < DCH_SMALL_RTT_MAX) and (big_rtt < DCH_BIG_RTT_MAX) and (float(big_rtt)/small_rtt < 2):
+          labels.append("Anomalous-DCH") # We should only see one DCH-like state
+        # FACH is characterized by moderate RTTs and significant differences between RTTs based on packet size
+        elif (small_rtt < FACH_SMALL_RTT_MAX) and (big_rtt < FACH_BIG_RTT_MAX) and (float(big_rtt)/small_rtt > 1.75):
+          labels.append("FACH")
+          state = STATE_FACH
+        # FACH transitions are characterized by very high RTTs and short segments
+        elif (small_rtt > FACH_ANOMALOUS_SMALL_MIN or big_rtt > FACH_ANOMALOUS_BIG_MIN) and segment_len < 8:
+          labels.append("Anomalous-FACH")
+          state = STATE_FACH
+        # PCH is characterized by high RTTs, though not as high as FACH transitions
+        elif small_rtt > PCH_SMALL_MIN and big_rtt > PCH_BIG_MIN:
           labels.append("PCH")
-          min_index = i
-          min_val = small_rtt
-          for j in pch_state_indices:
-            if small_rtt > model_small[j][AVG_INDEX]:
-              min_index = j
-              min_val = model_small[j][AVG_INDEX]
-
           pch_state_indices.append(i)
-          #logging.info("min val for pch is %s" %min_val)
-          for j in pch_state_indices:
-            if j != min_index:
-              labels[j] = "Anomalous-PCH"      
-                  
-          if len(pch_state_indices) > 0 and labels[pch_state_indices[0]] == "Anomalous-PCH" and not has_fach:
-            labels[pch_state_indices[0]] = "Anomalous-FACH"
-            pch_state_indices = pch_state_indices[1:]
-            has_fach = True
+          state = STATE_PCH
+        else:
+          labels.append("Anomalous")
+      # From FACH, we can continue to be in FACH, can be an an anomalous FACH state, or can go to PCH.
+      elif (state == STATE_FACH):
+        if (small_rtt < FACH_SMALL_RTT_MAX) and (big_rtt < FACH_BIG_RTT_MAX) and (float(big_rtt)/small_rtt > 1.75):
+          labels.append("FACH")
+          state = STATE_FACH
+        elif small_rtt > FACH_ANOMALOUS_SMALL_MIN or big_rtt > FACH_ANOMALOUS_BIG_MIN and segment_len < 8:
+          labels.append("Anomalous-FACH")
+          state = STATE_FACH
+        elif small_rtt > PCH_SMALL_MIN and big_rtt > PCH_BIG_MIN:
+          labels.append("PCH")
+          state = STATE_PCH
+          pch_state_indices.append(i)
+          # Note: Anomalous FACH, i.e. transition behavior, should always be less than PCH.  
+          # If not, it needs correcting.
+          if (labels[-2] == "Anomalous-FACH"):
+            last_small_rtt = model_small[i-1][AVG_INDEX]
+            last_big_rtt = model_large[i-1][AVG_INDEX]
+            if last_small_rtt < small_rtt and last_big_rtt < big_rtt*1.5 and float(last_big_rtt)/last_small_rtt > 1.75:
+              labels[-2] = "FACH"
+        else:
+          labels.append("Anomalous")
+        has_fach = True
+      # From PCH, we have to stay in PCH.
+      elif (state == STATE_PCH):
+        # if there are two PCH states, one is anomalous.  Go through and mark the biggest ones.
+        labels.append("PCH")
+        min_index = i
+        min_val = small_rtt
+        for j in pch_state_indices:
+          if small_rtt > model_small[j][AVG_INDEX]:
+            min_index = j
+            min_val = model_small[j][AVG_INDEX]
 
-            # Now, check if the second one is really FACH
-            fach_candidate = pch_state_indices[0]
-            small_rtt_candidate = model_small[fach_candidate][AVG_INDEX]
-            big_rtt_candidate = model_large[fach_candidate][AVG_INDEX]
-            if (small_rtt_candidate < FACH_SMALL_RTT_MAX) and (big_rtt_candidate < FACH_BIG_RTT_MAX) and (float(big_rtt_candidate)/small_rtt_candidate > 1.75):
-              labels[fach_candidate] = "FACH"
+        pch_state_indices.append(i)
+        #logging.info("min val for pch is %s" %min_val)
+        for j in pch_state_indices:
+          if j != min_index:
+            labels[j] = "Anomalous-PCH"      
+                
+        if len(pch_state_indices) > 0 and labels[pch_state_indices[0]] == "Anomalous-PCH" and not has_fach:
+          labels[pch_state_indices[0]] = "Anomalous-FACH"
+          pch_state_indices = pch_state_indices[1:]
+          has_fach = True
 
-        logging.info("Chose label %s based on small_rtt: %s, big_rtt: %s, ratio: %s" % (labels[-1], small_rtt, big_rtt, float(big_rtt)/small_rtt))
+          # Now, check if the second one is really FACH
+          fach_candidate = pch_state_indices[0]
+          small_rtt_candidate = model_small[fach_candidate][AVG_INDEX]
+          big_rtt_candidate = model_large[fach_candidate][AVG_INDEX]
+          if (small_rtt_candidate < FACH_SMALL_RTT_MAX) and (big_rtt_candidate < FACH_BIG_RTT_MAX) and (float(big_rtt_candidate)/small_rtt_candidate > 1.75):
+            labels[fach_candidate] = "FACH"
+
+      logging.info("Chose label %s based on small_rtt: %s, big_rtt: %s, ratio: %s" % (labels[-1], small_rtt, big_rtt, float(big_rtt)/small_rtt))
     return labels
 
   ##########This is currently not used and it yet to be modified to be compatible with GAE---START ##################

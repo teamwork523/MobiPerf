@@ -260,8 +260,8 @@ public class Checkin {
       e1.printStackTrace();
     }
 
-    Logger.w("getting model from server");
-    String response = serviceRequest("/getRRCmodel", parameters.toString());
+    Logger.w("getting model from server with parameters " + parameters.toString());
+    String response = serviceRequest("rrc/getRRCmodel", parameters.toString());
     Logger.w("response" + response.toString());
         
     try {
@@ -304,16 +304,18 @@ public class Checkin {
     String[] parameters = data.toJSON(network_id, info.deviceId);
     try {
       for (String parameter: parameters) {
-        Logger.w(parameter);
-        String response = serviceRequest("uploadRRCInference", parameter);
-        Logger.w(response);
+        Logger.w("Uploading RRC raw data: " + parameter);
+        String response = serviceRequest("rrc/uploadRRCInference", parameter);
+        Logger.w("Response from GAE: " + response);
 
         Logger.i("TaskSchedule.uploadMeasurementResult() complete");
         sendStringMsg("Result upload complete.");
       }
       JSONObject parameter = new JSONObject();
       parameter.put("phone_id",  info.deviceId);
-      serviceRequest("generateModel", parameter.toString());
+      Logger.w("Trigger server to generate the model: " + parameter);
+      String response = serviceRequest("rrc/generateModel", parameter.toString());
+      Logger.w("Response from GAE: " + response);
     } catch (IOException e) {
       throw new IOException(e.getMessage());
     } catch (NumberFormatException e) {

@@ -275,9 +275,9 @@ RRC Inference parameters
 (optional) min - Min packet size for RRC inference packet (int)
 (optional) max - Max packet size for RRC inference packet (int)
 (optional) size - The number of intervals (every 0.5s) for inference (int)
-(optional) test_time_one - Default DCH trigger timer (int)
-(optional) test_time_two - Default FACH trigger timer (int)
-(optional) test_time_three - Default PCH trigger timer (int)
+(optional) state1_demotion_timer - Default DCH trigger timer (int)
+(optional) state2_demotion_timer - Default FACH trigger timer (int)
+(optional) state3_demotion_timer - Default PCH trigger timer (int)
 (optional) result_visibility - Whether RRC result visible to users (boolean)
 
 RRC Inference value

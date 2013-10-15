@@ -21,7 +21,8 @@ android/gen/
 
 # This is for development data (not to be tracked)
 server/dev_data/
-
+server/gspeedometer/config.py
+server/gspeedometer/config_private.py
 
 # Random evil files
 *.DS_Store

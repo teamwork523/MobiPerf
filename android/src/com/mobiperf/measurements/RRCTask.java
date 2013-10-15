@@ -279,21 +279,21 @@ public class RRCTask extends MeasurementTask {
           this.GIVEUP_THRESHHOLD = Integer.parseInt(val);
         }
         Logger.d("param: GIVEUP_THRESHHOLD "+ this.GIVEUP_THRESHHOLD);
-        if ((val = params.get("test_time_one")) != null
+        if ((val = params.get("state1_demotion_timer")) != null
             && val.length() > 0 && Integer.parseInt(val) > 0) {
           this.default_times[0] = Integer.parseInt(val);
         }
-        Logger.d("param: test_time_one "+ this.default_times[0]);
-        if ((val = params.get("test_time_two")) != null
+        Logger.d("param: state1_demotion_timer "+ this.default_times[0]);
+        if ((val = params.get("state2_demotion_timer")) != null
             && val.length() > 0 && Integer.parseInt(val) > 0) {
           this.default_times[1] = Integer.parseInt(val);
         }
-        Logger.d("param: test_time_two "+ this.default_times[1]);
-        if ((val = params.get("test_time_three")) != null
+        Logger.d("param: state2_demotion_timer "+ this.default_times[1]);
+        if ((val = params.get("state3_demotion_timer")) != null
             && val.length() > 0 && Integer.parseInt(val) > 0) {
           this.default_times[2] = Integer.parseInt(val);
         }
-        Logger.d("param: test_time_three "+ this.default_times[2]);
+        Logger.d("param: state3_demotion_timer "+ this.default_times[2]);
         if (this.default_times[0] >= this.default_times[1] ||
             this.default_times[1] >= this.default_times[2]) {
           throw new InvalidParameterException(
@@ -551,12 +551,14 @@ public class RRCTask extends MeasurementTask {
         Logger.d("About to save data");
         this.progress = Math.min(Config.MAX_PROGRESS_BAR_VALUE, 40);
         try {
-          checkin.updateModel(data);        
+          // TODO (Haokun): delete after debugging
+          Logger.w("RRC: update the model on the GAE datastore");
+          checkin.updateModel(data);
+          Logger.d("Saving data complete");
         } catch (IOException e ) {
           e.printStackTrace();
-          Logger.d("Data not saved");
+          Logger.e("Data not saved: " + e.getMessage());
         }
-        Logger.d("Saving data complete");
       }
 
       // extra tests

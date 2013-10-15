@@ -151,39 +151,53 @@ m.connect('/admin/archive/cron',
 # New RRCInference START
 # below are the path and handlers for RRC state inference START:
 # for getting computed RRC model from the server
-m.connect('/getRRCmodel',
+m.connect('/rrc/getRRCmodel',
             controller='RRCstates:RRCStates',
             action='getRRCmodel')
 
 # to upload the raw rrc data to server
-m.connect('/uploadRRCInference',
+m.connect('/rrc/uploadRRCInference',
             controller='RRCstates:RRCStates',
             action='uploadRRCInference')
 
 # to handle taskqueue tasks
-m.connect('/generateModelWorker',
+m.connect('/rrc/generateModelWorker',
             controller='smooth_prototype:ModelBuilder',
             action='modelBuilder')
             
-m.connect('/generateModel',
+m.connect('/rrc/generateModel',
+            controller='RRCstates:RRCStates',
+            action='generateModel')
+
+# anonymous version of the RRC model
+m.connect('/anonymous/rrc/getRRCmodel',
+            controller='RRCstates:RRCStates',
+            action='getRRCmodel')
+
+m.connect('/anonymous/rrc/uploadRRCInference',
+            controller='RRCstates:RRCStates',
+            action='uploadRRCInference')
+
+m.connect('/anonymous/rrc/generateModelWorker',
+            controller='smooth_prototype:ModelBuilder',
+            action='modelBuilder')
+            
+m.connect('/anonymous/rrc/generateModel',
             controller='RRCstates:RRCStates',
             action='generateModel')
 
 # start is called by GAE when a backend needs to be started
-m.connect('/_ah/start',
+"""m.connect('/_ah/start',
           controller='smooth_prototype:ModelBuilder',
-          action='StartHandler')
+          action='StartHandler')"""
 
-m.connect('/backend/smooth_prototype',
-            controller='smooth_prototype:ModelBuilder',
-            action='modelBuilder')
 # New RRCInference END
 
 # For backend instance, give it something that won't
 # return a 500 error.
-"""m.connect('/_ah/start',
+m.connect('/_ah/start',
           controller='about:About',
-          action='About')"""
+          action='About')
 
 application = wsgi.WSGIApplication(m, debug=False)
 

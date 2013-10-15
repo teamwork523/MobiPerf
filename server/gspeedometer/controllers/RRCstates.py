@@ -68,12 +68,8 @@ class RRCStates(webapp.RequestHandler):
             #get the device id which is requesting for model.
             phone_id = util.HashDeviceId(str(getmodelReqParam['phone_id']))
             logging.info('getmodel req from device %s'%phone_id)
-            #get testid for which model is to be returned 
-#            test_id = getmodelReqParam['test_id']
-
 
             #get computed model info based on testid and phone id
-#            rrc_modelData = self.GetRRCmodelData(phone_id,test_id)
             rrc_modelData = self.GetRRCmodelData(phone_id)
             
             #encode obtained data into JSON format
@@ -91,19 +87,13 @@ class RRCStates(webapp.RequestHandler):
     
     def GetRRCmodelData(self,phone_id):
         measurement_pts_list = []
-        measurement_pts_dict = {}       
-        #get the current user
-        #user = users.get_current_user()  :need to use this based on requirement
-        
+        measurement_pts_dict = {}
+
         #read from database
-        '''query =  db.GqlQuery("SELECT * FROM RRCStateModel" 
-                            "WHERE phone_id = :1 AND small=FALSE",phone_id)'''
         query = model.RRCStateModel.all()
         logging.info('count of all rows ')
-#        logging.info(test_id)
         logging.info(query.count())
         query.filter('phone_id =',phone_id)
-        #query.filter('test_id >=',test_id) #TO check of this condition is required
         query.filter('small =',False)
         logging.info(query.count())       
         
@@ -118,84 +108,3 @@ class RRCStates(webapp.RequestHandler):
         logging.info('GetRRCmodelData called. Value of measurment points are %s',measurement_pts_list) 
         measurement_pts_dict['measurement_points'] = measurement_pts_list
         return measurement_pts_dict
-        
-    #-------------------Temp method writing to DB: START--------------------------------------------   
-    
-    def temp_uploadRRCInference(self, **unused_args):
-        """Handler for uploadRRCInference request generated from client"""
-        logging.info('Entering temp_uploadRRCInference')
-        #self.temp_writerawdatatoDB()
-        rawdata = model.RRCInferenceRawData()
-        rawdata.phone_id = 123456054340594
-        rawdata.test_id = 8
-        rawdata.network_type = '15'
-        rawdata.rtt_low = 98
-        rawdata.rtt_high = 100
-        rawdata.lost_low = 8
-        rawdata.lost_high = 0
-        rawdata.signal_low = 11
-        rawdata.signal_high = 11
-        rawdata.error_low = 0
-        rawdata.error_high = 0
-        rawdata.time_delay = 0
-        rawdata.timestamp = datetime.datetime.utcnow()
-        #write to DB/model
-        #rawdata.put()
-        
-        
-        if config.BACKEND_ONLY:
-            logging.info('executing only backend')
-            payload = urllib.urlencode({'phone_id': 353024054340594,'test_id':8})
-            #url = '%s/backend/smooth_prototype' % (backends.get_url('smoothprototype'))
-            logging.info('backend is %s',backends.get_url('smoothprototype'))
-            url_renamed = 'http://rrc-gae.smoothprototype.stateofrest.appspot.com/backend/smooth_prototype'
-            logging.info('url_renamed %s',url_renamed)
-            result =  urlfetch.fetch(url_renamed, method='POST',payload=payload)
-            logging.info('result returned from fetch is %s',result.status_code)
-        elif config.TASKQUEUE_ONLY:
-            # Add the task to the default queue.
-            logging.info('executing only taskqueue')
-            taskqueue.add(url='/rrc/generateModelWorker', params={'phone_id': 123456054340594})
-        
-        
-    def temp_getRRCmodel(self, **unused_args):
-        logging.info('Temp save RRC model called!!!!!!!!!!!!!!!!')
-        phone_id  = 353024054340594
-        phone_id1 = 520834473640594
-        phone_id2 = 405945208344736
-        rrcmodel = model.RRCStateModel()
-        
-        rrcmodel.username = users.get_current_user()
-        rrcmodel.phone_id = phone_id
-        rrcmodel.test_id = 17
-        rrcmodel.segment_begin = 6
-        rrcmodel.segment_end = 30
-        rrcmodel.avg = 1414.0
-        rrcmodel.small = False
-        #rrcmodel.put()
-        
-        rrcmodel1 = model.RRCStateModel()
-        rrcmodel1.phone_id = phone_id1
-        rrcmodel1.test_id = 17
-        rrcmodel1.segment_begin = 0
-        rrcmodel1.segment_end = 5
-        rrcmodel1.avg = 149.0
-        rrcmodel1.small = False
-        #rrcmodel1.put()
-        
-        rrcmodel2 = model.RRCStateModel()
-        rrcmodel2.phone_id = phone_id2
-        rrcmodel2.test_id = 17
-        rrcmodel2.segment_begin = 6
-        rrcmodel2.segment_end = 30
-        rrcmodel2.avg = 695.0
-        rrcmodel2.small = True
-        #rrcmodel2.put()
-        
-   
-        #now test if reading of DB is succesful
-        measurepts = self.GetRRCmodelData(phone_id)
-        logging.info('measurepts :- %s'%measurepts)
-        
- #------------------------Temp method writing to DB: END---------------------------------------   
-    

@@ -5,7 +5,6 @@
     <string name="default_user_agent">"MobiPerf-2.0 (Linux; Android)"</string>
     <string name="ping_executable">ping</string>
     <string name="ping6_executable">ping6</string>
-    <!--  TODO (Haokun): 98.209.116.110:8080, 67.194.94.78, teamwork523.appspot.com -->
     <string name="serverUrl">http://67.194.94.78:8080</string>
     <string name="anonymousServerUrl">http://67.194.94.78:8080/anonymous</string>
     <string name="testServerUrl">http://67.194.94.78:8080</string>

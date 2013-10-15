@@ -98,7 +98,7 @@ public abstract class MeasurementTask implements Callable<MeasurementResult>, Co
   /** Get the type of a measurement based on its name. Type is for JSON interface only
    * where as measurement name is a readable string for the UI */
   public static String getTypeForMeasurementName(String name) {
-  	return measurementDescToType.get(name);
+    return measurementDescToType.get(name);
   }
   
   /**

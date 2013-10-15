@@ -71,24 +71,25 @@ public class RRCTask extends MeasurementTask {
   public static class RRCDesc extends MeasurementDesc {
     private static String HOST = "www.google.com";
 
-    // Default echo server parameters.  Not sure if this should even be settable.
+    // Default echo server name and port to measure the RTT to infer RRC state
     private static int PORT = 50000;
     private static String ECHO_HOST = "ep2.eecs.umich.edu";
-    
+    // Perform RTT measurements every GRANULARITY ms
     public int GRANULARITY = 500;
+    // MIN / MAX is the echo packet size
     int MIN = 0;
     int MAX = 1024;
+    // Default total number of measurements
     int size = 30;
+    // Echo server / port, and target to perform the extra tasks  
     public String echo_host = ECHO_HOST;
     public String target = HOST;
-    int port = PORT;  
+    int port = PORT;
 
+    // Default threshold to repeat each RTT measurement because of background traffic
     int GIVEUP_THRESHHOLD = 15;
 
-    public static enum ExtraType {DNS, TCP, HTTP};
-
-    //boolean EXTRA_TESTS_ONLY = true;
-    //boolean RUNEXTRATESTS = true;
+    // server controled variable
     boolean DNS = true;
     boolean TCP = true;
     boolean HTTP = true;
@@ -117,25 +118,7 @@ public class RRCTask extends MeasurementTask {
       initializeParams(params);
     }
     
-    public MeasurementResult getResults(MeasurementResult result) {
-    	/*
-      JSONArray http = new JSONArray();
-      JSONArray tcp = new JSONArray();
-      JSONArray dns = new JSONArray();
-      JSONArray time_array = new JSONArray();
-      
-      for (int i = 0; i < times.length; i++) {
-        if (HTTP) http.put(http_test[i]);
-        if (TCP) tcp.put(tcp_test[i]);
-        if (DNS) dns.put(dns_test[i]);
-        time_array.put(times[i]);
-      }
-      
-      if (HTTP) result.addResultString("http", http.toString());
-      if (TCP) result.addResultString("tcp", tcp.toString());
-      if (DNS) result.addResultString("dns", dns.toString());
-      result.addResult("times", time_array.toString());*/
-    	
+    public MeasurementResult getResults(MeasurementResult result) {    	
       if (HTTP) result.addResult("http", http_test);
       if (TCP) result.addResult("tcp", tcp_test);
       if (DNS) result.addResult("dns", dns_test);
@@ -144,7 +127,7 @@ public class RRCTask extends MeasurementTask {
       return result;
     }
     
-    public void printme(StringBuilderPrinter printer) {
+    public void displayResults(StringBuilderPrinter printer) {
       String DEL = "\t", toprint = DEL + DEL;
       for (int i = 1; i <= times.length; i++) {
         toprint += DEL + " | state" + i; 
@@ -318,7 +301,7 @@ public class RRCTask extends MeasurementTask {
       baseline_min = value[1];
     }
     
-    public void initializeExtra(int size) {
+    public void initializeExtraTaskResults(int size) {
       http_test = new int[size];
       dns_test = new int[size];
       tcp_test = new int[size];
@@ -394,7 +377,6 @@ public class RRCTask extends MeasurementTask {
     public String[] toJSON(String networktype, String phone_id) {
       String[] returnval = new String[rtts_low.length];
       try {
-        //JSONArray array = new JSONArray();
         for (int i = 0; i < rtts_low.length; i++) {
           JSONObject subtest = new JSONObject();  
           subtest.put("rtt_low", rtts_low[i]);        
@@ -410,9 +392,7 @@ public class RRCTask extends MeasurementTask {
           subtest.put("test_id", test_id);
           subtest.put("phone_id", phone_id);
           returnval[i] = subtest.toString();
-          //array.put(subtest);
         }
-        //wrapper_obj.put("rrc_inference", array);
       } catch (JSONException e) {
         Logger.e("Error converting RRC data to JSON");
       }
@@ -499,15 +479,15 @@ public class RRCTask extends MeasurementTask {
     if (desc.extra) {
       result = desc.getResults(result);
     }
-    //TODO (Haokun): make this info
-    Logger.w(MeasurementJsonConvertor.toJsonString(result));
+
+    Logger.i(MeasurementJsonConvertor.toJsonString(result));
     return result;
   }
   
   private RRCDesc runInferenceTests() throws MeasurementError {
 
     Checkin checkin = new Checkin(context);
-    checkin.initializeForRRC();
+    //checkin.initializeForRRC();
 
     RRCDesc desc = (RRCDesc) measurementDesc;
     int[] times = desc.default_times;
@@ -522,13 +502,13 @@ public class RRCTask extends MeasurementTask {
     } catch (IOException e1) {
       e1.printStackTrace();
     }
-    // TODO(Haokun): delete after debugging
+    // TODO (Haokun): delete after debugging
     Logger.w("After getModel: Times value is " + Arrays.toString(desc.times));
     
     PhoneUtils utils = PhoneUtils.getPhoneUtils();
-    desc.initializeExtra(times.length);
+    desc.initializeExtraTaskResults(times.length);
     
-    // TODO add a threshhold back in when done testing
+    // TODO (Sanae):add a threshhold back in when done testing
     if (utils.getNetwork() == "UNKNOWN" ||utils.getNetwork() == "WIRELESS" /*|| utils.getCurrentRssi() < 8*/) {
       Logger.d("Returning: network is" + utils.getNetwork() + " rssi " + utils.getCurrentRssi());
       return desc;
@@ -891,12 +871,12 @@ public class RRCTask extends MeasurementTask {
     Thread.sleep(time_to_sleep);
   }
   
+  /**
+   * Sends a packet of the size indicated and waits for a response.
+   * 
+   */
   public static long[] sendMultiPackets(InetAddress serverAddr, int size, int num, int MIN, int port) throws IOException {
 
-    /**
-     * Sends a packet of the size indicated and waits for a response.
-     * 
-     */
     long start_time = 0;
     long end_time = 0;
     byte[] buf = new byte[size];

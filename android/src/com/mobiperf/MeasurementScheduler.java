@@ -171,10 +171,12 @@ public class MeasurementScheduler extends Service {
         if (intent.getAction().equals(UpdateIntent.PREFERENCE_ACTION)) {
           updateFromPreference();
         } else if (intent.getAction().equals(UpdateIntent.CHECKIN_ACTION) ||
-              intent.getAction().equals(UpdateIntent.CHECKIN_RETRY_ACTION)) {
+              intent.getAction().equals(UpdateIntent.CHECKIN_RETRY_ACTION)
+              && !RRCTrafficControl.checkIfPaused()) {
           Logger.d("Checkin intent received");
           handleCheckin(false);
-        } else if (intent.getAction().equals(UpdateIntent.MEASUREMENT_ACTION)) {
+        } else if (intent.getAction().equals(UpdateIntent.MEASUREMENT_ACTION)
+                   && !RRCTrafficControl.checkIfPaused()) {
           Logger.d("MeasurementIntent intent received");
           handleMeasurement();
         } else if (intent.getAction().equals(UpdateIntent.MEASUREMENT_PROGRESS_UPDATE_ACTION)) {
@@ -259,7 +261,7 @@ public class MeasurementScheduler extends Service {
       return;
     }
     
-    if (!force && isPauseRequested()) {
+    if ((!force && isPauseRequested()) || RRCTrafficControl.checkIfPaused()) {
       sendStringMsg("Skipping checkin - app is paused");
       return;
     } 
@@ -634,6 +636,9 @@ public class MeasurementScheduler extends Service {
   
   private void getTasksFromServer() throws IOException {
     Logger.i("Downloading tasks from the server");
+    if (RRCTrafficControl.checkIfPaused()) {
+      return;
+    }
     checkin.getCookie();
     List<MeasurementTask> tasksFromServer = checkin.checkin();
     // The new task schedule overrides the old one

@@ -411,7 +411,7 @@ public class Checkin {
     return client;
   }
   
-  private String serviceRequest(String url, String jsonString) 
+  public String serviceRequest(String url, String jsonString) 
       throws IOException {
     
     if (this.accountSelector == null) {

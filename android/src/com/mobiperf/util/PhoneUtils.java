@@ -139,13 +139,6 @@ public class PhoneUtils {
   protected PhoneUtils(Context context) {
     this.context = context;
     broadcastReceiver = new PowerStateChangeReceiver();
-    // TODO (Haokun): delete after debugging
-    if (broadcastReceiver == null) {
-    	Logger.w("PhoneUtils: broadcast receiver is null!!!!");
-    }
-    if (globalContext == null) {
-    	Logger.w("PhoneUtils: globalContext is null!!!!");
-    }
     // Registers a receiver for battery change events.
     Intent powerIntent = globalContext.registerReceiver(broadcastReceiver, 
         new IntentFilter(Intent.ACTION_BATTERY_CHANGED));

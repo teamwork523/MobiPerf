@@ -155,12 +155,7 @@ public class MeasurementCreationActivity extends Activity {
       this.findViewById(R.id.UDPBurstIntervalView).setVisibility(View.VISIBLE);
     } else if (this.measurementTypeUnderEdit.compareTo(TCPThroughputTask.TYPE) == 0) {
       this.findViewById(R.id.TCPThroughputDirView).setVisibility(View.VISIBLE);
-    } 
-    /*
-     * Currently RRC measurement could only be scheduled from the server side
-     else if (this.measurementTypeUnderEdit.compareTo(RRCTask.TYPE) ==0 ) {
-      this.findViewById(R.id.rrcTargetView).setVisibility(View.VISIBLE);
-	  }*/
+    }
   }
 
   private void hideKyeboard(EditText textBox) {

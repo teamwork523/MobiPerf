@@ -83,11 +83,6 @@ public class MeasurementResult {
     this.values.put(resultType, MeasurementJsonConvertor.toJsonString(resultVal));
   }
 
-  public void addResultString(String resultType, String resultVal) {
-    Logger.i("addResult: " + resultVal);
-    this.values.put(resultType,resultVal);
-  }
-
   /* Returns a string representation of the result */
   @Override
   public String toString() {
@@ -316,7 +311,7 @@ public class MeasurementResult {
 
     if (success && desc != null) {
       if (desc.RESULT_VISIBILITY) {
-        desc.printme(printer);
+        desc.displayResults(printer);
       }
     } else {
       printer.println("Failed");

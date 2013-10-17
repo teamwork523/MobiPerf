@@ -50,7 +50,7 @@ class RRCStates(webapp.RequestHandler):
         getReqParam = json.loads(self.request.body)         
         
         # Add the task to the default queue.
-        taskqueue.add(url='/rrc/generateModelWorker', params={'phone_id': getReqParam['phone_id']})
+        taskqueue.add(url='/rrc/generateModelWorker?phone_id=%s' % (getReqParam['phone_id']), method='GET', queue_name='default')
 
         return
         

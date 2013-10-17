@@ -186,10 +186,10 @@ m.connect('/anonymous/rrc/generateModel',
             controller='RRCstates:RRCStates',
             action='generateModel')
 
-# start is called by GAE when a backend needs to be started
-"""m.connect('/_ah/start',
-          controller='smooth_prototype:ModelBuilder',
-          action='StartHandler')"""
+# A cron job to process RRC data
+m.connect('/cron/rrc/generateModelWorker',
+            controller='smooth_prototype:ModelBuilder',
+            action='cronModelBuiler')
 
 # New RRCInference END
 

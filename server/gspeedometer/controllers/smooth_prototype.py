@@ -33,19 +33,13 @@ import datetime
 
 REMOVEDROPPED = True
 class ModelBuilder(webapp.RequestHandler):
-  logging.info('creating smooth_proto class instance')
+  #logging.info('creating smooth_proto class instance')
 
-  def StartHandler(self, **unused_args):
-    """Handler for '/_ah/start'.
+  def cronModelBuiler(self, **unused_args):
+    """Handler for '/cron/rrc/generateModelWorker'.
     This url is called once when the backend is started.
     """
-    logging.info('Backend Start Handler() Called!!!')  
-
-  def post(self, method):
-    logging.info('POST MEthod of smooth proto post called!!!!!!!1')
-
-  def get(self, method):
-    logging.info('POST MEthod of smooth proto GET called!!!!!!!1')
+    logging.info('Cron job executed!!!')
 
   def modelBuilder(self, **unused_args):
     """Handler for /rrc/generateModelWorker"""
@@ -54,7 +48,7 @@ class ModelBuilder(webapp.RequestHandler):
     phone_id = self.request.get('phone_id')
     logging.info('phone id =%s '%(phone_id))
 
-    # Hash for anonymity        
+    # Hash for anonymity
     if phone_id.isdigit():
       phone_id = util.HashDeviceId(str(phone_id))
 

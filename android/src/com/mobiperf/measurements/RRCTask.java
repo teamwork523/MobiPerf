@@ -80,9 +80,9 @@ public class RRCTask extends MeasurementTask {
     int MIN = 0;
     int MAX = 1024;
     // Default total number of measurements
-    int size = 30;
-    // Echo server / port, and target to perform the extra tasks  
-    public String echo_host = ECHO_HOST;
+    int size = 31;
+    // Echo server / port, and target to perform the upper-layer tasks  
+    public String echoHost = ECHO_HOST;
     public String target = HOST;
     int port = PORT;
 
@@ -98,17 +98,25 @@ public class RRCTask extends MeasurementTask {
     // Whether RRC result is visible to users
     public boolean RESULT_VISIBILITY = false;
     
-    int baseline_max = -1;
-    int baseline_min = -1;    
+    /* For the upper-layer tests, a series of tests are made for different inter-packet
+     * intervals, in order.  "Times" indicates the inter-packet intervals, the
+     * other fields store the results.  All must be the same size.
+     */
+    int[] times; // The times where the above tests were made, in units of GRANULARITY.
+    int[] httpTest; // The results of the HTTP test performed at each time
+    int[] dnsTest; // likewise, for the DNS test
+    int[] tcpTest; // likewise, for the TCP test
 
-    int[] http_test;
-    int[] dns_test;
-    int[] tcp_test;
-    int[] times;
-
-    private boolean extra = false;
+    // Whether or not to run the upper layer tests, i.e. the HTTP, TCP and DNS tests.
+    // Disabling this flag will disable all upper layer tests.
+    private boolean runUpperLayerTests = false;
     
-    int[] default_times = new int[] {0, 6, 15};
+    /* Default times between packets for which the upper layer tests are performed.
+     * Later, these times will be replaced by times from the model.
+     * These times are GRANULARITY milliseconds: if GRANULARITY is 500, then 
+     * a default time of 6 means measurements are taken 500 ms apart.
+     */
+    int[] defaultTimesULTasks = new int[] {0, 6, 15};
     
 
     public RRCDesc(String key, Date startTime,
@@ -119,9 +127,9 @@ public class RRCTask extends MeasurementTask {
     }
     
     public MeasurementResult getResults(MeasurementResult result) {    	
-      if (HTTP) result.addResult("http", http_test);
-      if (TCP) result.addResult("tcp", tcp_test);
-      if (DNS) result.addResult("dns", dns_test);
+      if (HTTP) result.addResult("http", httpTest);
+      if (TCP) result.addResult("tcp", tcpTest);
+      if (DNS) result.addResult("dns", dnsTest);
       result.addResult("times", times);
       
       return result;
@@ -142,8 +150,8 @@ public class RRCTask extends MeasurementTask {
       toprint += "\n";
       if (HTTP) {
         toprint += "HTTP (ms)" + DEL;
-        for (int i = 0; i < http_test.length; i++) {
-          toprint += DEL + " | " + Integer.toString(http_test[i]);
+        for (int i = 0; i < httpTest.length; i++) {
+          toprint += DEL + " | " + Integer.toString(httpTest[i]);
         }
         toprint += " |\n";
         for (int i = 0; i < oneLineLen; i++) {
@@ -154,8 +162,8 @@ public class RRCTask extends MeasurementTask {
       
       if (DNS) {
       	toprint += "DNS (ms)" + DEL;
-        for (int i = 0; i < dns_test.length; i++) {
-          toprint += DEL + " | " + Integer.toString(dns_test[i]);
+        for (int i = 0; i < dnsTest.length; i++) {
+          toprint += DEL + " | " + Integer.toString(dnsTest[i]);
         }
         toprint += " |\n";
         for (int i = 0; i < oneLineLen; i++) {
@@ -166,8 +174,8 @@ public class RRCTask extends MeasurementTask {
 
       if (TCP) {
       	toprint += "TCP (ms)" + DEL;
-        for (int i = 0; i < tcp_test.length; i++) {
-          toprint += DEL + " | " + Integer.toString(tcp_test[i]);
+        for (int i = 0; i < tcpTest.length; i++) {
+          toprint += DEL + " | " + Integer.toString(tcpTest[i]);
         }
         toprint += " |\n";
         for (int i = 0; i < oneLineLen; i++) {
@@ -189,102 +197,120 @@ public class RRCTask extends MeasurementTask {
     public String getType() {
       return RRCTask.TYPE;
     }
-    
+   
+    /**
+     * Given the parameters fetched from the server, sets up the parameters as needed for the 
+     * upper layer tests, i.e. the application layer tests. 
+     */ 
     @Override
     protected void initializeParams(Map<String, String> params) {
-	    // TODO Auto-generated method stub
-	    
+
+      // In this case, we fall back to the default values defined above.	    
       if (params == null) {
         return;
       }
-      this.echo_host = params.get("echo_host");
+
+      // The parameters for the echo server
+      this.echoHost = params.get("echo_host");
       this.target = params.get("target");
-      if (this.echo_host == null) {
-        this.echo_host = ECHO_HOST;
+      if (this.echoHost == null) {
+        this.echoHost = ECHO_HOST;
       }
       if (this.target == null) {
         this.target = HOST;
       }
-      Logger.d("param: echo_host "+ this.echo_host);
+      Logger.d("param: echo_host "+ this.echoHost);
       Logger.d("param: target "+ this.target);
       
       try {
         String val = null;
+        // Size of the small packet
         if ((val = params.get("min")) != null
             && val.length() > 0 && Integer.parseInt(val) > 0) {
           this.MIN = Integer.parseInt(val);
         }
         Logger.d("param: Min "+ this.MIN);
+        // Size of the large packet  
         if ((val = params.get("max")) != null
             && val.length() > 0 && Integer.parseInt(val) > 0) {
           this.MAX = Integer.parseInt(val);
-        }
+        }        
         Logger.d("param: MAX "+ this.MAX);
+        // Echo server port
         if ((val = params.get("port")) != null
             && val.length() > 0 && Integer.parseInt(val) > 0) {
           this.port = Integer.parseInt(val);
         }
         Logger.d("param: port "+ this.port);
+        // Number of tests to run from the RRC test
         if ((val = params.get("size")) != null
             && val.length() > 0 && Integer.parseInt(val) > 0) {
           this.size = Integer.parseInt(val);
         }
         Logger.d("param: size "+ this.size);
-        
+        // Whether or not to run the DNS test
         if ((val = params.get("dns")) != null
             && val.length() > 0) {
           this.DNS = Boolean.parseBoolean(val);
         }   
         Logger.d("param: DNS "+ this.DNS);
+        // Whether or not to run the HTTP test
         if ((val = params.get("http")) != null
             && val.length() > 0) {
           this.HTTP = Boolean.parseBoolean(val);
         }   
         Logger.d("param: HTTP "+ this.HTTP);  
+        // Whether or not to run the TCP test
         if ((val = params.get("tcp")) != null
             && val.length() > 0) {
           this.TCP = Boolean.parseBoolean(val);
         } 
         Logger.d(params.get("rrc"));
         Logger.d("param: TCP "+ this.TCP);
+        // Whether or not to run the RRC inference task
         if ((val = params.get("rrc")) != null
             && val.length() > 0) {
           this.RRC = Boolean.parseBoolean(val);
         }
         Logger.d("param: RRC "+ this.RRC);
+        // Whether the RRC result is visible to users
         if ((val = params.get("result_visibility")) != null
                 && val.length() > 0) {
           this.RESULT_VISIBILITY = Boolean.parseBoolean(val);
         }
         Logger.d("param: visibility "+ this.RESULT_VISIBILITY);
+        // How many times to retry a test when interrupted by background traffic
         if ((val = params.get("giveup_threshhold")) != null
             && val.length() > 0 && Integer.parseInt(val) > 0) {
           this.GIVEUP_THRESHHOLD = Integer.parseInt(val);
         }
         Logger.d("param: GIVEUP_THRESHHOLD "+ this.GIVEUP_THRESHHOLD);
+
+        // Default assumed timers for the upper layer tests (HTTP, DNS, TCP),
+        // in units of GRANULARITY.
         if ((val = params.get("state1_demotion_timer")) != null
             && val.length() > 0 && Integer.parseInt(val) > 0) {
-          this.default_times[0] = Integer.parseInt(val);
+          this.defaultTimesULTasks[0] = Integer.parseInt(val);
         }
-        Logger.d("param: state1_demotion_timer "+ this.default_times[0]);
+        Logger.d("param: state1_demotion_timer "+ this.defaultTimesULTasks[0]);
         if ((val = params.get("state2_demotion_timer")) != null
             && val.length() > 0 && Integer.parseInt(val) > 0) {
-          this.default_times[1] = Integer.parseInt(val);
+          this.defaultTimesULTasks[1] = Integer.parseInt(val);
         }
-        Logger.d("param: state2_demotion_timer "+ this.default_times[1]);
+        Logger.d("param: state2_demotion_timer "+ this.defaultTimesULTasks[1]);
         if ((val = params.get("state3_demotion_timer")) != null
             && val.length() > 0 && Integer.parseInt(val) > 0) {
-          this.default_times[2] = Integer.parseInt(val);
+          this.defaultTimesULTasks[2] = Integer.parseInt(val);
         }
-        Logger.d("param: state3_demotion_timer "+ this.default_times[2]);
-        if (this.default_times[0] >= this.default_times[1] ||
-            this.default_times[1] >= this.default_times[2]) {
+        Logger.d("param: state3_demotion_timer "+ this.defaultTimesULTasks[2]);
+        if (this.defaultTimesULTasks[0] >= this.defaultTimesULTasks[1] ||
+            this.defaultTimesULTasks[1] >= this.defaultTimesULTasks[2]) {
           throw new InvalidParameterException(
               "RRCTask cannot be created due to invalid params -" +
               " default times values must be in strict increasing orders");
         }
         if (times == null) {
-          times = default_times; // obviously, because they're default
+          times = defaultTimesULTasks;  
         }
       } catch (NumberFormatException e) {
         throw new InvalidParameterException(
@@ -292,104 +318,121 @@ public class RRCTask extends MeasurementTask {
       }
       
       if (size == 0) {
-        size = 31;
+        // 31 tests, by default.  From 0s to 15s inclusive, in half-second intervals.
+        size = 31;  
       }
     }
+   
 
-    void addNormalData(int[] value) {
-      baseline_max = value[0];
-      baseline_min = value[1];
-    }
-    
+    /**
+     * For the arrays holding the results for the upper layer tests, we need to 
+     * initialize them to be the same size as the number of tests we run.
+     * -1 means uninitialized.  
+     */ 
     public void initializeExtraTaskResults(int size) {
-      http_test = new int[size];
-      dns_test = new int[size];
-      tcp_test = new int[size];
+      httpTest = new int[size];
+      dnsTest = new int[size];
+      tcpTest = new int[size];
       for (int i = 0; i < size; i++) {
-        http_test[i] = -1;
-        dns_test[i] = -1;
-        tcp_test[i] = -1;
+        httpTest[i] = -1;
+        dnsTest[i] = -1;
+        tcpTest[i] = -1;
       }
-      extra = true;
+      runUpperLayerTests = true;
     }
     
     public void setHttp(int i, int val) throws MeasurementError {
-      if (!extra) {
+      if (!runUpperLayerTests) {
         throw new MeasurementError("Data class not initialized");
       }
-      http_test[i] = val;     
+      httpTest[i] = val;     
     }
     
     public void setTcp(int i, int val) throws MeasurementError {
-      if (!extra) {
+      if (!runUpperLayerTests) {
         throw new MeasurementError("Data class not initialized");
       }
-      tcp_test[i] = val;      
+      tcpTest[i] = val;      
     }
     
     public void setDns(int i, int val) throws MeasurementError {
-      if (!extra) {
+      if (!runUpperLayerTests) {
         throw new MeasurementError("Data class not initialized");
       }
-      dns_test[i] = val;      
+      dnsTest[i] = val;      
     }
   }
   
   public static class RrcTestData {
-    int[] rtts_low;
-    int[] rtts_high;
-    int[] lost_low;
-    int[] lost_high;
-    int[] signal_low;
-    int[] signal_high;
-    int[] error_low;
-    int[] error_high;
-    int test_id;
+    // Each of these is a list of results indexed by the test number.
+    // Tests are performed in order with increasing inter-packet intervals
+    // and results and data about the tests are stored here.
+    
+    // Round-trip times, in ms
+	int[] rttsSmall;
+    int[] rttsLarge;
+    // Packets lost for each test
+    int[] packetsLostSmall;
+    int[] packetsLostLarge;
+    // Signal strengths at time of each test
+    int[] signalStrengthSmall;
+    int[] signalStrengthLarge;
+    // Error Counts from each test
+    int[] errorCountSmall;
+    int[] errorCountLarge;
+    // Unique incrementing value that identifies this set of tests.
+    int testId;
     
     public RrcTestData(int size, Context context) {
       size = size + 1;
-      rtts_low = new int[size];
-      rtts_high = new int[size];
-      lost_low = new int[size];
-      lost_high = new int[size];
-      signal_low = new int[size];
-      signal_high = new int[size];
-      error_low = new int[size];
-      error_high = new int[size];
-      test_id = getTestId(context);
+
+
+      rttsSmall = new int[size];
+      rttsLarge = new int[size];
+      packetsLostSmall = new int[size];
+      packetsLostLarge = new int[size];
+      signalStrengthSmall = new int[size];
+      signalStrengthLarge = new int[size];    
+      errorCountSmall = new int[size];
+      errorCountLarge = new int[size];
+      
+      testId = getTestId(context);
    
-      for (int i = 0; i < rtts_low.length; i++) {
-        rtts_low[i] = 7000;
-        rtts_high[i] = 7000;
-        lost_low[i] = -1;
-        lost_high[i] = -1;
-        signal_low[i] = -1;
-        signal_high[i] = -1;
-        error_low[i] = -1;
-        error_high[i] = -1;       
+      // Set default values
+      for (int i = 0; i < rttsSmall.length; i++) {
+        // 7000 is the cutoff for timeouts.
+        // This makes the model-building script treat no data and timeouts the same.
+        rttsSmall[i] = 7000;   
+        rttsLarge[i] = 7000;
+        packetsLostSmall[i] = -1;
+        packetsLostLarge[i] = -1;
+        signalStrengthSmall[i] = -1;
+        signalStrengthLarge[i] = -1;
+        errorCountSmall[i] = -1;
+        errorCountLarge[i] = -1;       
       }
     }
 
     public int testId() {
-      return test_id;
+      return testId;
     }
     
     public String[] toJSON(String networktype, String phone_id) {
-      String[] returnval = new String[rtts_low.length];
+      String[] returnval = new String[rttsSmall.length];
       try {
-        for (int i = 0; i < rtts_low.length; i++) {
+        for (int i = 0; i < rttsSmall.length; i++) {
           JSONObject subtest = new JSONObject();  
-          subtest.put("rtt_low", rtts_low[i]);        
-          subtest.put("rtt_high", rtts_high[i]);
-          subtest.put("lost_low", lost_low[i]);
-          subtest.put("lost_high", lost_high[i]);
-          subtest.put("signal_low", signal_low[i]);
-          subtest.put("signal_high", signal_high[i]);
-          subtest.put("error_low", error_low[i]);
-          subtest.put("error_high", error_high[i]);
+          subtest.put("rtt_low", rttsSmall[i]);        
+          subtest.put("rtt_high", rttsLarge[i]);
+          subtest.put("lost_low", packetsLostSmall[i]);
+          subtest.put("lost_high", packetsLostLarge[i]);
+          subtest.put("signal_low", signalStrengthSmall[i]);
+          subtest.put("signal_high", signalStrengthLarge[i]);
+          subtest.put("error_low", errorCountSmall[i]);
+          subtest.put("error_high", errorCountLarge[i]);
           subtest.put("network_type", networktype);
           subtest.put("time_delay", i);
-          subtest.put("test_id", test_id);
+          subtest.put("test_id", testId);
           subtest.put("phone_id", phone_id);
           returnval[i] = subtest.toString();
         }
@@ -400,27 +443,27 @@ public class RRCTask extends MeasurementTask {
     }
     
     public void deleteItem(int i){
-      rtts_low[i] = -1;
-      rtts_high[i] = -1;
-      lost_low[i] = -1;
-      lost_high[i] = -1;
-      signal_low[i] = -1;
-      signal_high[i] = -1;
-      error_low[i] = -1;
-      error_high[i] = -1;
+      rttsSmall[i] = -1;
+      rttsLarge[i] = -1;
+      packetsLostSmall[i] = -1;
+      packetsLostLarge[i] = -1;
+      signalStrengthSmall[i] = -1;
+      signalStrengthLarge[i] = -1;
+      errorCountSmall[i] = -1;
+      errorCountLarge[i] = -1;
     }
     
     public void updateAll(int index, int rtt_max, int rtt_min, 
         int num_packets_lost_max, int num_packets_lost_min, 
         int error_high, int error_low, int signal_high, int signal_low) {
-      this.rtts_high[index] = (int) rtt_max;
-      this.rtts_low[index] = (int) rtt_min;
-      this.lost_high[index] = num_packets_lost_max;
-      this.lost_low[index] = num_packets_lost_min;
-      this.error_high[index] = error_high; 
-      this.error_low[index] = error_low;
-      this.signal_high[index] = signal_high; 
-      this.signal_low[index] = signal_low;
+      this.rttsLarge[index] = (int) rtt_max;
+      this.rttsSmall[index] = (int) rtt_min;
+      this.packetsLostLarge[index] = num_packets_lost_max;
+      this.packetsLostSmall[index] = num_packets_lost_min;
+      this.errorCountLarge[index] = error_high; 
+      this.errorCountSmall[index] = error_low;
+      this.signalStrengthLarge[index] = signal_high; 
+      this.signalStrengthSmall[index] = signal_low;
     }
   }
 
@@ -467,6 +510,11 @@ public class RRCTask extends MeasurementTask {
     stop = true;
   }
 
+  /**
+   * Helper function to construct MeasurementResults to submit to the server
+   * @param desc
+   * @return
+   */
   private MeasurementResult constructResultStandard(RRCDesc desc) {
     PhoneUtils phoneUtils = PhoneUtils.getPhoneUtils();
     boolean success = true;
@@ -476,7 +524,7 @@ public class RRCTask extends MeasurementTask {
         System.currentTimeMillis() * 1000, success,
         this.measurementDesc);
 
-    if (desc.extra) {
+    if (desc.runUpperLayerTests) {
       result = desc.getResults(result);
     }
 
@@ -484,13 +532,26 @@ public class RRCTask extends MeasurementTask {
     return result;
   }
   
+  /**
+   * The core RRC inference functionality is in this function.  
+   * The steps involved can be summarized as follows:
+   *    1.  Fetch the last model generated by the server, if it exists.
+   *    2.  Check we are on a cellular network, otherwise abort.
+   *    3.  Inform all other tasks that they should delay network traffic
+   *        until later.
+   *    4.  For every upper layer test, if upper layer tests and that test specifically
+   *        are enabled, run that test.
+   *        
+   * @return
+   * @throws MeasurementError
+   */
   private RRCDesc runInferenceTests() throws MeasurementError {
 
     Checkin checkin = new Checkin(context);
-    //checkin.initializeForRRC();
 
+    // Fetch the existing model from the server, if it exists
     RRCDesc desc = (RRCDesc) measurementDesc;
-    int[] times = desc.default_times;
+    int[] times = desc.defaultTimesULTasks;
     // TODO(Haokun): delete after debugging
     Logger.w("Before getModel: Times value is " + Arrays.toString(desc.times));
     try {
@@ -508,24 +569,33 @@ public class RRCTask extends MeasurementTask {
     PhoneUtils utils = PhoneUtils.getPhoneUtils();
     desc.initializeExtraTaskResults(times.length);
     
-    // TODO (Sanae):add a threshhold back in when done testing
+    // Check to make sure we are on a valid (i.e. cellular) network
     if (utils.getNetwork() == "UNKNOWN" ||utils.getNetwork() == "WIRELESS" /*|| utils.getCurrentRssi() < 8*/) {
       Logger.d("Returning: network is" + utils.getNetwork() + " rssi " + utils.getCurrentRssi());
       return desc;
     }
 
     try {
+      /*
+       *  Suspend all other tasks performed by the app as they can interfere.
+       *  Although we have a built-in check where we abort if traffic in the
+       *  background interferes, in the past people have scheduled other
+       *  tests to be every 5 minutes, which can cause the RRC task to never
+       *  successfully complete without having to abort.
+       */
       RRCTrafficControl.PauseTraffic();
+      
+      // If the RRC task is enabled
       if (desc.RRC) {
         RrcTestData data = new RrcTestData(desc.size, context);
 
+        // Set up the connection to the echo server
         Logger.d("Active inference: about to begin");
-        Logger.d(desc.echo_host + ":" + desc.port);
-
-        InetAddress serverAddr = InetAddress.getByName(desc.echo_host);
+        Logger.d(desc.echoHost + ":" + desc.port);
+        InetAddress serverAddr = InetAddress.getByName(desc.echoHost);
         
+        // Perform the RRC timer and latency inference task 
         Logger.d("Demotion inference: about to begin");
-        desc.addNormalData(normalTransmissions(serverAddr, desc, data));
         desc = inferDemotion(serverAddr, desc, data, utils);
 
         Logger.d("About to save data");
@@ -541,24 +611,31 @@ public class RRCTask extends MeasurementTask {
         }
       }
 
-      // extra tests
-      if (desc.DNS) {
-      	// TODO(Haokun): delete after debugging
-      	Logger.w("Start DNS extra task");
-        runDnsTest(desc.times, desc);
+      // Check if the upper layer tasks are enabled
+      if (desc.runUpperLayerTests) {
+        if (desc.DNS) {
+          // TODO(Haokun): delete after debugging
+          Logger.w("Start DNS task");
+          // Test the dependence of DNS latency on the RRC state, using
+          // the previously constructed model if available.
+          runDnsTest(desc.times, desc);
+        }
+        this.progress = Math.min(Config.MAX_PROGRESS_BAR_VALUE, 60);
+        if (desc.TCP) {
+          // TODO(Haokun): delete after debugging
+          Logger.w("Start TCP task");
+          // Test the dependence of TCP latency on the RRC state.
+          runTCPHandshakeTest(desc.times, desc);           
+        }
+        this.progress = Math.min(Config.MAX_PROGRESS_BAR_VALUE, 80);
+        if (desc.HTTP) {
+          // TODO(Haokun): delete after debugging
+          Logger.w("Start HTTP task");
+          // Test the dependence of HTTP latency on the RRC state.
+          runHTTPTest(desc.times, desc);         
+        }
       }
-      this.progress = Math.min(Config.MAX_PROGRESS_BAR_VALUE, 60);
-      if (desc.TCP) {
-      	// TODO(Haokun): delete after debugging
-      	Logger.w("Start TCP extra task");
-        runTCPHandshakeTest(desc.times, desc);           
-      }
-      this.progress = Math.min(Config.MAX_PROGRESS_BAR_VALUE, 80);
-      if (desc.HTTP) {
-      	// TODO(Haokun): delete after debugging
-      	Logger.w("Start HTTP extra task");
-        runHTTPTest(desc.times, desc);         
-      }
+
       this.progress = Math.min(Config.MAX_PROGRESS_BAR_VALUE, 100);
     } catch (UnknownHostException e) {
       e.printStackTrace();
@@ -575,36 +652,77 @@ public class RRCTask extends MeasurementTask {
     return desc;
   }
   
+  /**
+   * The "times" are the inter-packet intervals at which to run the test.
+   * Ideally these should be based on the model constructed by the server,
+   * a default assumed value is used in their absence.
+   * 
+   * Based on the time it takes to load a response from the page.
+   * 
+   * This test is not currently as accurate as the other tests, for reasons
+   * described below.
+   * 
+   * @param times
+   * @param desc
+   */
   private void runHTTPTest(final int[] times, RRCDesc desc) {
     /*
      * Length of time it takes to request and read in a page.
+     * 
+     * 
+     * 
      */
     
     Logger.d("Active inference HTTP test: about to begin");
-    // Important: Initialize the dns_test
-    if (times.length != desc.http_test.length) {
-    	desc.http_test = new int[times.length];
+    if (times.length != desc.httpTest.length) {
+    	desc.httpTest = new int[times.length];
     }
-    long start_time = 0;
-    long end_time = 0;
+    long startTime = 0;
+    long endTime = 0;
     try {
       for (int i = 0; i < times.length; i++) {
+        // We try until we reach a threshhold or until there is no
+        // competing traffic.
         for (int j = 0; j < desc.GIVEUP_THRESHHOLD; j++) {
+          // Sometimes the network can change in the middle of a test
           checkIfWifi();
           if (stop) {
             return;
           }
-
-          int[] packets_first = getPacketsSent();
+          /*
+           *  We keep track of the packets sent at the beginning and end
+           *  of the test so we can detect if there is competing traffic
+           *  anywhere on the phone.
+           */
+          
+          int[] packets_first = getPacketsSent();  
+          
+          // Initiate the desired RRC state by sending a large enough packet
+          // to go to DCH and waiting for the specified amount of time
+          try {
+            InetAddress serverAddr; 
+            serverAddr = InetAddress.getByName(desc.echoHost); 
+                sendPacket(serverAddr, desc.MAX, null, desc);             
+            waitTime(times[i] * desc.GRANULARITY, true);
+          } catch (InterruptedException e1) {
+            e1.printStackTrace();
+            continue;
+          } catch (UnknownHostException e) {
+            e.printStackTrace();
+            continue;
+          } catch (IOException e) {
+            e.printStackTrace();
+            continue;
+          }          
          
           HttpClient client = new DefaultHttpClient();
           HttpGet request = new HttpGet();
 
           request.setURI(new URI("http://" + desc.target));
 
-          start_time = System.currentTimeMillis();
+          startTime = System.currentTimeMillis();
           HttpResponse response = client.execute(request);
-          end_time = System.currentTimeMillis();
+          endTime = System.currentTimeMillis();
 
           BufferedReader in = null;
           in = new BufferedReader
@@ -623,13 +741,15 @@ public class RRCTask extends MeasurementTask {
 
           Logger.d("Packets sent: " + rcv_packets + " " + sent_packets);
           
+          // We don't actually know how many packets should be sent...
+          // However, if there were an unreasonable number, we try again.
           if (rcv_packets <= 100 && sent_packets <=100) {
             Logger.d("No competing traffic, continue");
             break;
           }
         }
 
-        long rtt = end_time - start_time;  
+        long rtt = endTime - startTime;  
         try {
           desc.setHttp(i, (int) rtt);
         } catch (MeasurementError e) {
@@ -647,6 +767,20 @@ public class RRCTask extends MeasurementTask {
   }
   
   /**
+   * The "times" are the inter-packet intervals at which to run the test.
+   * Ideally these should be based on the model constructed by the server,
+   * a default assumed value is used in their absence.
+   * 
+   * 1. Send a packet to initiate the RRC state desired.  
+   * 2. Create a randomly generated host name (to ensure that the host name
+   *    is not cached).  I found on some devices that even when you clear
+   *    the cache manually, the data remains in the cache. 
+   * 3. Time how long it took to look it up.
+   * 4. Count the total packets sent, globally on the phone.  If more packets 
+   *    were sent than expected, abort and try again.
+   * 5. Otherwise, save the data for that test and move to the next inter-packet
+   *    interval. 
+   * 
    * Test is similar to the approach taken in DnsLookUpTask.java.
    * @param times
    * @param desc
@@ -655,61 +789,81 @@ public class RRCTask extends MeasurementTask {
   
   public void runDnsTest(final int[] times, RRCDesc desc) throws MeasurementError {
     Logger.d("Active inference DNS test: about to begin");
-    // Important: Initialize the dns_test
-    if (times.length != desc.dns_test.length) {
-    	desc.dns_test = new int[times.length];
+    if (times.length != desc.dnsTest.length) {
+    	desc.dnsTest = new int[times.length];
     }
-    //long[] rtts = new long[times.length];
-    long start_time = 0;
-    long end_time = 0;  
 
+    long startTime = 0;
+    long endTime = 0;  
+
+    // For each inter-packet interval...
     for (int i = 0; i < times.length; i++) {
+      // On a failure, try again until a threshold is reached.
       for (int j = 0; j < desc.GIVEUP_THRESHHOLD; j++) {
 
+        // Sometimes the network can change in the middle of a test
         checkIfWifi();
         if (stop) {
           return;
         }
-        int[] packets_first = getPacketsSent();
-
-        /*
-         *  Fall back to other testing metohd
+        
+        /*  We keep track of the packets sent at the beginning and end
+         *  of the test so we can detect if there is competing traffic
+         *  anywhere on the phone.
          */
+        int[] packetsFirst = getPacketsSent();
+
+
+        // Initiate the desired RRC state by sending a large enough packet
+        // to go to DCH and waiting for the specified amount of time
         try {
           InetAddress serverAddr; 
-          serverAddr = InetAddress.getByName(desc.echo_host); 
+          serverAddr = InetAddress.getByName(desc.echoHost); 
               sendPacket(serverAddr, desc.MAX, null, desc);             
           waitTime(times[i] * desc.GRANULARITY, true);
         } catch (InterruptedException e1) {
           e1.printStackTrace();
+          continue;
         } catch (UnknownHostException e) {
           e.printStackTrace();
+          continue;
         } catch (IOException e) {
           e.printStackTrace();
+          continue;
         }
         
+        // Create a random URL, to avoid the caching problem
         UUID uuid = UUID.randomUUID();
         String host = uuid.toString()+ ".com";  
-        start_time = System.currentTimeMillis();  
+        // Start measuring the time to complete the task
+        startTime = System.currentTimeMillis();  
         try {
           InetAddress serverAddr = InetAddress.getByName(host);
         } catch (UnknownHostException e) {
-          // we do this on purpose!             
+          // we do this on purpose! Since it's a fake URL the lookup will fail    
         } catch (IOException e) {
           e.printStackTrace();
         }
-        end_time = System.currentTimeMillis();
-        int[] packets_last = getPacketsSent();
-        int rcv_packets =  (packets_last[0] - packets_first[0]);
-        int sent_packets = (packets_last[1] - packets_first[1]);
-        if (rcv_packets <= 3  && sent_packets <= 3 && (end_time - start_time) > 10) {
+        // When we  fail to find the URL, we stop timing
+        endTime = System.currentTimeMillis();
+        
+        // Check how many packets were sent again.  If the expected number
+        // of packets were sent, we can finish and go to the next task.
+        // Otherwise, we have to try again.
+        int[] packetsLast = getPacketsSent();
+        int rcvPackets =  (packetsLast[0] - packetsFirst[0]);
+        int sentPackets = (packetsLast[1] - packetsFirst[1]);
+        if (rcvPackets <= 3  && sentPackets <= 3 && (endTime - startTime) > 10) {
           Logger.d("No competing traffic, continue");       
           break;
         }
-        Logger.d("Packets sent: " + rcv_packets + " " + sent_packets);
-        Logger.d("Time: " + (end_time - start_time));
+        Logger.d("Packets sent: " + rcvPackets + " " + sentPackets);
+        Logger.d("Time: " + (endTime - startTime));
       }         
-      long rtt = end_time - start_time;  
+      
+      // If we broke out of the try-again loop, the last set of results are
+      // valid and we can save them.
+      long rtt = endTime - startTime;  
       try {
         desc.setDns(i, (int) rtt);
       } catch (MeasurementError e) {
@@ -719,50 +873,70 @@ public class RRCTask extends MeasurementTask {
     }
   }
   
+  /**
+   * Time how long it takes to do a TCP 3-way handshake, starting from
+   * the induced RRC state.
+   * 
+   * 1. Send a packet to initiate the RRC state desired.  
+   * 2. Open a TCP connection to the echo host server.
+   * 3. Time how long it took to look it up.
+   * 4. Count the total packets sent, globally on the phone.  If more packets 
+   *    were sent than expected, abort and try again.
+   * 5. Otherwise, save the data for that test and move to the next inter-packet
+   *    interval. 
+   *    
+   *    
+   * @param times
+   * @param desc
+   */
   public void runTCPHandshakeTest(final int[] times, RRCDesc desc) {
     Logger.d("Active inference TCP test: about to begin");
-    // Important: Initialize the dns_test
-    if (times.length != desc.tcp_test.length) {
-    	desc.tcp_test = new int[times.length];
+    if (times.length != desc.tcpTest.length) {
+    	desc.tcpTest = new int[times.length];
     }
-    long start_time = 0;
-    long end_time = 0;
+    long startTime = 0;
+    long endTime = 0;
 
     try {
+      // For each inter-packet interval...
       for (int i = 0; i < times.length; i++) {
+        // On a failure, try again until a threshhold is reached.
         for (int j = 0; j < desc.GIVEUP_THRESHHOLD; j++) {
           checkIfWifi();
           if (stop) {
             return;
           }
 
-          int[] packets_first = getPacketsSent();
+          int[] packetsFirst = getPacketsSent();
           
           // Induce DCH then wait for specified time
           InetAddress serverAddr; 
-          serverAddr = InetAddress.getByName(desc.echo_host); 
+          serverAddr = InetAddress.getByName(desc.echoHost); 
           sendPacket(serverAddr, desc.MAX, null, desc);             
           waitTime(times[i] * 500, true); 
           
-          // begin test
-          start_time = System.currentTimeMillis();
+          // begin test.  We test the time to do a 3-way handshake only.
+          startTime = System.currentTimeMillis();
           serverAddr = InetAddress.getByName(desc.target);
           // three-way handshake done when socket created
           Socket socket = new Socket(serverAddr, 80);   
-          end_time = System.currentTimeMillis();
-            
-          int[] packets_last = getPacketsSent();              
-          int rcv_packets =  (packets_last[0] - packets_first[0]);
-          int sent_packets = (packets_last[1] - packets_first[1]);
-          if (rcv_packets <= 5 && sent_packets <=4) {
+          endTime = System.currentTimeMillis();
+
+          // Check how many packets were sent again.  If the expected number
+          // of packets were sent, we can finish and go to the next task.
+          // Otherwise, we have to try again.
+          int[] packetsLast = getPacketsSent();              
+          int rcvPackets =  (packetsLast[0] - packetsFirst[0]);
+          int sentPackets = (packetsLast[1] - packetsFirst[1]);
+          if (rcvPackets <= 5 && sentPackets <=4) {
             Logger.d("No competing traffic, continue");
             socket.close();       
             break;
           }
           socket.close();
-          Logger.d("Packets sent: " + rcv_packets + " " + sent_packets);
+          Logger.d("Packets sent: " + rcvPackets + " " + sentPackets);
         }
-        long rtt = end_time - start_time;  
+        long rtt = endTime - startTime;  
         try {
           desc.setTcp(i, (int) rtt);
         } catch (MeasurementError e) {
@@ -779,50 +953,43 @@ public class RRCTask extends MeasurementTask {
     }
   }
 
-  private int[] normalTransmissions(InetAddress serverAddr, RRCDesc desc, RrcTestData data) throws InterruptedException, IOException {
-    /*
-     * Measure RTT from RCH state.  Good for normalizing quantity of noise.
-     */
-    
-    long rtt_min;
-    long rtt_max;
-    checkIfWifi();
-
-    while (true) {
-      if (stop) {
-        int[] retval = {-1, -1};
-        return retval;
-      }
-      
-      Logger.d("Testing basic rtts");
-      
-      int[] packets_first = getPacketsSent();
-      sendPacket(serverAddr, desc.MAX, data, desc); // boost to RCH
-      rtt_min = sendPacket(serverAddr,  desc.MIN, data, desc); // then measure
-      if (rtt_min == -1) continue; // timeout, try again
-      rtt_max = sendPacket(serverAddr, desc.MAX, data, desc);
-      if (rtt_max == -1) continue; // timeout, try again
-      int[] packets_last = getPacketsSent();
-      
-      int rcv_packets =  (packets_last[0] - packets_first[0]);
-      int sent_packets = (packets_last[1] - packets_first[1]);
-      // TODO(Haokun): remove after debugging
-      Logger.d("Sent packet number is " + sent_packets + "; Received packet number is " + rcv_packets);
-      if (rcv_packets == 3 && sent_packets == 3) {
-        Logger.d("No competing traffic, continue");       
-        break;
-      }
-      checkIfWifi();
-      Logger.d("Try again. 3 expected, packets received:" + (packets_last[0] - packets_first[0]) + 
-        	     " Packets sent: " + (packets_last[1] - packets_first[1]));     
-    }
-    
-    Logger.d("RTT of max packet:" + rtt_max);
-    Logger.d("RTT of min packet:" + rtt_min);
-    int[] retval = {(int) rtt_max, (int) rtt_min};
-    return retval;
-  }
-  
+  /**
+   * 
+   * For all time intervals specified, go through and perform the RRC inference
+   * test.
+   * 
+   * The way this test works, at a high level, is:
+   *    1. Send a large packet to induce DCH (or the equivalent)
+   *    2. Wait for an amount of time, t
+   *    3. Send a large packet and measure the round-trip time
+   *    4. Wait for another amount of time, t
+   *    5. Send a small packet and measure the round-trip time 
+   *    6. Repeat for all specified values of t.
+   *       These start at 0 and increase by GRANULARITY, "size" times.
+   *          
+   * The size of "small" and "large" packets are defined in the parameters.
+   * We observe the total packets sent to make sure there is no interfering
+   * traffic.
+   * 
+   * Packets are UDP packets.
+   * 
+   * From this, we can infer the timers associated with RRC states.  By 
+   * sending a large packet, we induce the highest power state.  Waiting
+   * a number of seconds afterwards allows us to demote to the next state.
+   * Sending a packet and observing the RTT allows us to infer if a state
+   * promotion had to take place.  
+   * 
+   * FACH is characterized by different state  promotion times for large and 
+   * small packets. 
+   * 
+   * @param serverAddr
+   * @param desc
+   * @param data
+   * @param utils
+   * @return
+   * @throws InterruptedException
+   * @throws IOException
+   */
   private RRCDesc inferDemotion(InetAddress serverAddr, RRCDesc desc, RrcTestData data, PhoneUtils utils) throws InterruptedException, IOException {
     Logger.d("3G demotion basic test");
     
@@ -837,7 +1004,7 @@ public class RRCTask extends MeasurementTask {
       inferDemotionHelper(serverAddr, i, data, desc, utils);
       Logger.d("Finished demotion test with length" + i);
       
-      // Note that we scale from 0-90 to save some stuff for extra tests.
+      // Note that we scale from 0-90 to save some stuff for upper layer tests.
       // If we wanted to really do this properly we could scale
       // according to how long each task should take.
       this.progress = Math.min(Config.MAX_PROGRESS_BAR_VALUE,
@@ -849,7 +1016,7 @@ public class RRCTask extends MeasurementTask {
   @Override
   public String toString() {
     RRCDesc desc = (RRCDesc) measurementDesc;
-    return "[RRC]\n  Echo Server: " + desc.echo_host + "\n  Target: " + desc.target 
+    return "[RRC]\n  Echo Server: " + desc.echoHost + "\n  Target: " + desc.target 
         + "\n  Interval (sec): " + desc.intervalSec 
         + "\n  Next run: " + desc.startTime;
   }
@@ -857,112 +1024,150 @@ public class RRCTask extends MeasurementTask {
   /*********************************************************************
    *                    UTILITIES                       *
    *********************************************************************/
-
-  public static void waitTime(int time_to_sleep, boolean use_ms) throws InterruptedException {
-    /**
-     * Sleep for the number of milliseconds indicated.
-     * If seconds are to be used instead, choose the above function.
-     */
-    Logger.d("Wait for n ms: " + time_to_sleep);
-
-    if (!use_ms) {
-      time_to_sleep = time_to_sleep * 1000;
-    }
-    Thread.sleep(time_to_sleep);
-  }
   
   /**
-   * Sends a packet of the size indicated and waits for a response.
    * 
+   * Sleep for the amount of time indicated.
+   * 
+   * 
+   * @param timeToSleep
+   * @param useMs Toggles between units of milliseconds for the first parameter (true) and seconds(false).
+   * @throws InterruptedException
    */
-  public static long[] sendMultiPackets(InetAddress serverAddr, int size, int num, int MIN, int port) throws IOException {
+  public static void waitTime(int timeToSleep, boolean useMs) throws InterruptedException {
+    /**
+     */
+    Logger.d("Wait for n ms: " + timeToSleep);
 
-    long start_time = 0;
-    long end_time = 0;
+    if (!useMs) {
+      timeToSleep = timeToSleep * 1000;
+    }
+    Thread.sleep(timeToSleep);
+  }
+  
+/**
+ * Sends a bunch of UDP packets of the size indicated and wait for the response.
+ * 
+ * Counts how long it takes for all the packets to return.  PAckets are currently not
+ * labelled: the total time is the time for the first packet to leave until the last
+ * packet arrives.  AFter 7000 ms it is assumed packets are lost and the socket times out.
+ * In that case, the number of packets lost is recorded.
+ * 
+ * @param serverAddr server to which to send the packets
+ * @param size size of the packets
+ * @param num number of packets to send
+ * @param packetSize size of the packets sent
+ * @param port port to send the packets to
+ * @return first value: the amount of time to send all packets and get a response.
+ *  second value: number of packets lost, on a timeout.
+ * @throws IOException
+ */
+  public static long[] sendMultiPackets(InetAddress serverAddr, int size, 
+      int num, int packetSize, int port) throws IOException {
+
+    long startTime = 0;
+    long endTime = 0;
     byte[] buf = new byte[size];
-    byte[] recv_buf = new byte[MIN];
+    byte[] rcvBuf = new byte[packetSize];
     long[] retval = {-1, -1};
-    long num_lost = 0;
+    long numLost = 0;
     int i = 0;
 
     DatagramSocket socket = new DatagramSocket();
-    DatagramPacket packet_rcv = new DatagramPacket(recv_buf, recv_buf.length);    
+    DatagramPacket packetRcv = new DatagramPacket(rcvBuf, rcvBuf.length);    
     DatagramPacket packet = new DatagramPacket(buf, buf.length, serverAddr, port);
 
     try {
         socket.setSoTimeout(7000);
-        start_time = System.currentTimeMillis();
+        startTime = System.currentTimeMillis();
         Logger.d("Sending packet, waiting for response ");
         for (i = 0; i < num; i++) {
           socket.send(packet);          
         }
         for (i = 0; i < num; i++) {
-          socket.receive(packet_rcv); 
+          socket.receive(packetRcv); 
           if (i == 0) {
 
-            end_time = System.currentTimeMillis();
+            endTime = System.currentTimeMillis();
           }       
         }
     } catch (SocketTimeoutException e){
       Logger.d("Timed out");
-        num_lost += (num - i);
+        numLost += (num - i);
         socket.close();
     }
-    Logger.d("Sending complete: " + end_time);
+    Logger.d("Sending complete: " + endTime);
     
-    retval[0] = end_time - start_time;
-    retval[1] = num_lost;
+    retval[0] = endTime - startTime;
+    retval[1] = numLost;
     
     return retval;
   }
   
   private static long sendPacket(InetAddress serverAddr, int size, RrcTestData data, RRCDesc desc)  throws IOException {
-    return sendPacket(serverAddr, size, desc.MAX, desc.MIN, desc.port, data);
+    return sendPacket(serverAddr, size, desc.MIN, desc.port, data);
   }
   
-  public static long sendPacket(InetAddress serverAddr, int size, int MAX, int MIN, int port, RrcTestData data) throws IOException {
-    /**
-     * Sends a packet of the size indicated and waits for a response.
-     * 
-     */
-    long start_time = 0;
+  /**
+   * Send a single packet of the size indicated and wait for a response.
+   * 
+   * After 7000 ms, time out and return a value of -1 (meaning no response).
+   * Otherwise, return the time from when the packet was sent to when a 
+   * response was returned by the echo server.
+   * 
+   * @param serverAddr
+   * @param size
+   * @param MAX 
+   * @param rcvSize size of packets sent from the echo server 
+   * @param port
+   * @param data
+   * @return
+   * @throws IOException
+   */
+  public static long sendPacket(InetAddress serverAddr, int size, int rcvSize,
+      int port, RrcTestData data) throws IOException {
+    long startTime = 0;
     byte[] buf = new byte[size];
-    byte[] recv_buf = new byte[MIN];
+    byte[] rcvBuf = new byte[rcvSize];
 
     DatagramSocket socket = new DatagramSocket();
-    DatagramPacket packet_rcv = new DatagramPacket(recv_buf, recv_buf.length);
+    DatagramPacket packetRcv = new DatagramPacket(rcvBuf, rcvBuf.length);
     
     DatagramPacket packet = new DatagramPacket(buf, buf.length, serverAddr, port);
 
     try {
         socket.setSoTimeout(7000);
-        start_time = System.currentTimeMillis();
+        startTime = System.currentTimeMillis();
         Logger.d("Sending packet, waiting for response ");
 
         socket.send(packet);
-        socket.receive(packet_rcv);
+        socket.receive(packetRcv);
     } catch (SocketTimeoutException e){
         Logger.d("Timed out, trying again");
         socket.close();
         return -1;
     }
-    long end_time = System.currentTimeMillis();
-    Logger.d("Sending complete: " + end_time);
+    long endTime = System.currentTimeMillis();
+    Logger.d("Sending complete: " + endTime);
     //Log.w(TAG, "ending " + end_time);
     
-    return end_time - start_time;
+    return endTime - startTime;
   } 
   
+  /**
+   * Determine how many packets, so far, have been sent (the contents of /proc/net/dev/).
+   * This is a global value.  We use this to determine if any other app anywhere on the
+   * phone may have sent interfering traffic that might have changed the RRC state 
+   * without our knowledge.
+   * @return
+   */
   public static int[] getPacketsSent() {
-    /**
-     * Determine how many packets, so far, have beeen sent (the contents of /proc/net/dev/).
-     * Used to determine if there has been interfering traffic.
-     */
     int[] retval = {-1, -1};
     try {
       Process process = Runtime.getRuntime().exec("cat /proc/net/dev");
       BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
       String line = bufferedReader.readLine();
+      // Look for a specific string in /proc/net/dev listing the number of packets sent
       Pattern r = Pattern.compile("[1-9][0-9]+");
       while (line != null && !( !line.contains("lo:") && r.matcher(line).find())) {
         line = bufferedReader.readLine();
@@ -972,7 +1177,9 @@ public class RRCTask extends MeasurementTask {
         return retval;
       }
       String[] brokenline = line.split("\\s+");
-      if (brokenline.length == 17) { // Checking which of two possible formats /proc/net/dev is in. 
+      // /proc/net/dev appears to come in two different formats, with different fields
+      // where the value we are interested in can appear.
+      if (brokenline.length == 17) { 
         retval[0] = Integer.parseInt(brokenline[2]);
         retval[1] = Integer.parseInt(brokenline[10]);
       } else {
@@ -987,11 +1194,36 @@ public class RRCTask extends MeasurementTask {
   }
   
   private long[] inferDemotionHelper(InetAddress serverAddr, int wait, RrcTestData data, RRCDesc desc, PhoneUtils utils) throws IOException, InterruptedException {
-    return inferDemotionHelper(serverAddr, wait, data, desc.MAX, desc.MIN, desc.port, desc.GRANULARITY, wait, utils); 
+    return inferDemotionHelper(serverAddr, wait, data, desc, wait, utils); 
   }
   
-
-  public static long[] inferDemotionHelper(InetAddress serverAddr, int wait, RrcTestData data, int MAX, int MIN, int port, int granularity, int index, PhoneUtils utils) throws IOException, InterruptedException {
+  /**
+   * One component of the RRC inference task.
+   *   1.  induce the highest-power RRC state by sending a large packet.
+   *   2.  wait the indicated number of seconds.
+   *   3.  send a series of 10 large packets at once.  Measure:
+   *      a) Time for all packets to be echoed back
+   *      b) number of packets lost, if any
+   *      c) associated signal strength
+   *      d) error rate is currently not implemented
+   *   4. Check if the expected number of packets were sent while performing a test.  
+   *      If too many packets were sent, abort.
+   * 
+   * 
+   * @param serverAddr
+   * @param wait delay between packets
+   * @param data
+   * @param MAX size of the large packets
+   * @param MIN size of the small packets
+   * @param port
+   * @param granularity
+   * @param index
+   * @param utils
+   * @return
+   * @throws IOException
+   * @throws InterruptedException
+   */
+  public static long[] inferDemotionHelper(InetAddress serverAddr, int wait, RrcTestData data, RRCDesc desc, int index, PhoneUtils utils) throws IOException, InterruptedException {
     /**
      * Once we generalize the RRC state inference problem, this is what we will use (since in general, RRC state can differ between large and small packets).
      * Gives the RTT for a large packet and a small packet for a given time after inducing DCH state.  Granularity currently half-seconds but can easily be increased.
@@ -999,59 +1231,68 @@ public class RRCTask extends MeasurementTask {
      * Measures packets sent before and after to make sure no extra packets were sent, and retries on a failure.
      * Also checks that there was no timeout and retries on a failure.
      */
-    long rtt_max = -1;
-    long rtt_min = -1;
-    int num_packets_lost_max = 0;
-    int num_packets_lost_min = 0;
+    long rttLargePacket = -1;
+    long rttSmallPacket = -1;
+    int packetsLostSmall = 0;
+    int packetsLostLarge = 0;
     
-    int error_high = 0;
-    int error_low = 0;
-    int signal_high = 0;
-    int signal_low = 0;
+    int errorCountLarge = 0;
+    int errorCountSmall = 0;
+    int signalStrengthLarge = 0;
+    int signalStrengthSmall = 0;
     
-    while(true) { 
+    for (int j = 0; j < desc.GIVEUP_THRESHHOLD; j++) {
       Logger.d("Active inference: about to begin helper");
-      int[] packets_first = getPacketsSent();
-      sendPacket(serverAddr, MAX, MAX, MIN, port, data);
-      waitTime(wait*granularity, true);
+      int[] packetsFirst = getPacketsSent();
       
-      //error_high = errorrate;
-      signal_high = utils.getCurrentRssi();
-      long[] retval = sendMultiPackets(serverAddr, MAX, 10, MIN, port);
-      num_packets_lost_max = (int) retval[1];
-      rtt_max = retval[0];
+      // Induce the highest power state
+      sendPacket(serverAddr, desc.MAX, desc.MIN, desc.port, data);
       
-      waitTime(wait*granularity, true);
+      // WAit for the specified amount of time
+      waitTime(wait*desc.GRANULARITY, true);
       
-      //error_low = errorrate;
-      signal_low = utils.getCurrentRssi();
+      // Send a bunch of large packets, all at once, and take measurements on the result
+      signalStrengthLarge = utils.getCurrentRssi();
+      long[] retval = sendMultiPackets(serverAddr, desc.MAX, 10, desc.MIN, desc.port);
+      packetsLostSmall = (int) retval[1];
+      rttLargePacket = retval[0];
       
-      retval = sendMultiPackets(serverAddr, MIN, 10, MIN, port);
-      num_packets_lost_min = (int) retval[1];
-      rtt_min = retval[0];
+      // wait for the specified amount of time
+      waitTime(wait*desc.GRANULARITY, true);
+      
+      // Send a bunch of small packets, all at once, and take measurements on the result
+      signalStrengthSmall = utils.getCurrentRssi();      
+      retval = sendMultiPackets(serverAddr, desc.MIN, 10, desc.MIN, desc.port);
+      packetsLostLarge = (int) retval[1];
+      rttSmallPacket = retval[0];
 
       
-      int[] packets_last = getPacketsSent();
+      int[] packetsLast = getPacketsSent();
       
-      int rcv_packets =  (packets_last[0] - packets_first[0]);
-      int sent_packets = (packets_last[1] - packets_first[1]);
+      int rcvPacketCount =  (packetsLast[0] - packetsFirst[0]);
+      int sentPacketCount = (packetsLast[1] - packetsFirst[1]);
       
-      if (rcv_packets <= 21 && sent_packets == 21) {
+      if (rcvPacketCount <= 21 && sentPacketCount == 21) {
 
         Logger.d("No competing traffic, continue");
         break;
       }
-      Logger.d("Try again. 21 expected, packets received:" + (packets_last[0] - packets_first[0]) + " Packets sent: " + (packets_last[1] - packets_first[1]));
+      Logger.d("Try again. 21 expected, packets received:" + (packetsLast[0] - packetsFirst[0]) + " Packets sent: " + (packetsLast[1] - packetsFirst[1]));
     }
 
-    Logger.d("3G demotion, lower bound: rtts are:" + rtt_max + " " + rtt_min + " " + num_packets_lost_max + " " + num_packets_lost_min);
+    Logger.d("3G demotion, lower bound: rtts are:" + rttLargePacket + " " + rttSmallPacket + " " + packetsLostSmall + " " + packetsLostLarge);
 
-    long[] retval = {rtt_max, rtt_min};
-    data.updateAll(index, (int)rtt_max, (int)rtt_min, num_packets_lost_max, num_packets_lost_min, error_high, error_low, signal_high, signal_low);
+    long[] retval = {rttLargePacket, rttSmallPacket};
+    data.updateAll(index, (int)rttLargePacket, (int)rttSmallPacket, packetsLostSmall, packetsLostLarge, errorCountLarge, errorCountSmall, signalStrengthLarge, signalStrengthSmall);
 
     return retval;
   }
   
+  /**
+   * Keep a global counter that labels each test with a unique, increasing integer.
+   * @param context
+   * @return
+   */
   public static synchronized int getTestId(Context context) {
     SharedPreferences prefs = context.getSharedPreferences("test_ids", Context.MODE_PRIVATE);
     int testid = prefs.getInt("test_id", 0) + 1;
@@ -1062,35 +1303,35 @@ public class RRCTask extends MeasurementTask {
   }
   
   /**
-   * If on wifi, suspend test indefinitely.
-   * Use exponential back-off to calculate the wait time.
-   * TODO cancel suspension of other tasks.
+   * If on wifi, suspend the task until we go back to the cellular network.
+   * Use exponential back-off to calculate the wait time, with a limit of 500 s.
+   * Once the limit is reached, unpause other tasks.
+   * Repause traffic if we are good to resume again.
+   * 
    * @return
-   */
-  
+   */  
   public void checkIfWifi() {
     PhoneUtils phoneUtils = PhoneUtils.getPhoneUtils();
     
-    int time_to_wait = 10;
+    int timeToWait = 10;
     while (true) {
       if (phoneUtils.getNetwork() != PhoneUtils.NETWORK_WIFI) {
         RRCTrafficControl.PauseTraffic();
         return;
       }
       if (stop) {
-        RRCTrafficControl.PauseTraffic();
         return;
       }
       
       Logger.d("RRCTask: on Wifi, try again later:" + phoneUtils.getNetwork());
-      if (time_to_wait < 500) {
-        time_to_wait = time_to_wait * 2;        
+      if (timeToWait < 500) { // 500s, or a bit over 8 minutes.
+        timeToWait = timeToWait * 2;        
       } else {
         // if it's taking a while, stop pausing traffic
         RRCTrafficControl.UnPauseTraffic();
       }
       try {
-        waitTime(time_to_wait, false);
+        waitTime(timeToWait, false);
       } catch (InterruptedException e) {
         e.printStackTrace();
       }

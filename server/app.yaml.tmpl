@@ -23,12 +23,12 @@ handlers:
   script: gspeedometer/main.py
   login: admin
 
-- url: /rrc/generateModelWorker
-  script: gspeedometer/controllers/smooth_prototype.py
-  login: admin
-
 - url: /anonymous/.*
   script: gspeedometer/main.py
+
+- url: /cron/rrc/generateModelWorker
+  script: gspeedometer/main.py
+  login: admin
 
 - url: /.*
   script: gspeedometer/main.py

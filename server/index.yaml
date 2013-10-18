@@ -69,3 +69,9 @@ indexes:
   properties:
   - name: timestamp
     direction: desc
+
+- kind: RRCInferenceRawData
+  properties:
+  - name: phone_id
+  - name: test_id
+  - name: time_delay

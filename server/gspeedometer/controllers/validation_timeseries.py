@@ -36,7 +36,8 @@ class Timeseries(webapp.RequestHandler):
 
   def Timeseries(self, **unused_args):
     """Main handler for the timeseries view."""
-
+    # TODO (Haokun): delete after debugging
+    logging.info("Init Timeseries")
     # This simply sets up the chart - the data is retrieved asynchronously.
     tscolumns = []
     for meas, name in measurement.MEASUREMENT_TYPES:

@@ -5,9 +5,9 @@
     <string name="default_user_agent">"MobiPerf-2.0 (Linux; Android)"</string>
     <string name="ping_executable">ping</string>
     <string name="ping6_executable">ping6</string>
-    <string name="serverUrl">http://67.194.94.78:8080</string>
-    <string name="anonymousServerUrl">http://67.194.94.78:8080/anonymous</string>
-    <string name="testServerUrl">http://67.194.94.78:8080</string>
+    <string name="serverUrl">http://67.194.55.23:8080</string>
+    <string name="anonymousServerUrl">http://67.194.55.23:8080/anonymous</string>
+    <string name="testServerUrl">http://67.194.55.23:8080</string>
     <string name="menuQuit">Quit</string>
     <string name="menumPause">Pause</string>
     <string name="pauseMessage">MobiPerf is paused.</string>

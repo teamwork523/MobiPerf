@@ -104,7 +104,11 @@ public class MeasurementResult {
         getTCPThroughputResult(printer, values);
       } else if (type == RRCTask.TYPE) {
         getRRCResult(printer, values);
-      } else {
+      } 
+      else if(type=="context"){
+    	  
+      }
+      else {
         Logger.e("Failed to get results for unknown measurement type " + type);
       }
       return builder.toString();

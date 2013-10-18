@@ -14,13 +14,31 @@
  */
 package com.mobiperf;
 
-import com.mobiperf.measurements.RRCTask;
-import com.mobiperf.util.MeasurementJsonConvertor;
-import com.mobiperf.util.PhoneUtils;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.Socket;
+import java.net.UnknownHostException;
+import java.security.KeyManagementException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Vector;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
-import android.accounts.AuthenticatorException;
-import android.accounts.OperationCanceledException;
-import android.content.Context;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 import org.apache.http.HttpVersion;
 import org.apache.http.client.CookieStore;
@@ -48,43 +66,148 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.Socket;
-import java.net.UnknownHostException;
-import java.security.KeyManagementException;
-import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.UnrecoverableKeyException;
-import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Vector;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
+import android.accounts.AuthenticatorException;
+import android.accounts.OperationCanceledException;
+import android.content.Context;
+import android.net.TrafficStats;
 
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
+import com.mobiperf.measurements.RRCTask;
+import com.mobiperf.util.MeasurementJsonConvertor;
+import com.mobiperf.util.PhoneUtils;
 
 /**
  * Handles checkins with the SpeedometerApp server.
  */
 public class Checkin {
+  public static int isBusy=0;
   private static final int POST_TIMEOUT_MILLISEC = 20 * 1000;
   private Context context;
   private Date lastCheckin;
   private volatile Cookie authCookie = null;
   private AccountSelector accountSelector = null;
   PhoneUtils phoneUtils;
-  
+  private Thread contextThread;
+  private Vector<MeasurementResult> contextResult;
+  Thread runnable = new Thread() {
+		public static final String TYPE = "context";
+		public MeasurementResult result;
+		protected ContextMeasurementDesc measurementDesc;
+
+		public void run() {
+			long prevSend = 0;
+			long prevRecv = 0;
+			long sendBytes = 0;
+			long recvBytes = 0;
+			long intervalSend = 0;
+			long intervalRecv = 0;
+
+			long prevPktSend = 0;
+			long prevPktRecv = 0;
+			long sendPkt = 0;
+			long recvPkt = 0;
+			long intervalPktSend = 0;
+			long intervalPktRecv = 0;
+			long ts1=0,ts3=0,ts4=0;
+			long ts2=0;
+			 int intervel = 5000;
+			while (true) {
+				//ts3=System.currentTimeMillis();
+				//ts1=System.currentTimeMillis();
+				sendBytes = TrafficStats.getMobileTxBytes();
+				//ts2=System.currentTimeMillis();
+				//System.out.println("xxxTxBytes"+(ts2-ts1));
+				//ts1=System.currentTimeMillis();
+				recvBytes = TrafficStats.getMobileRxBytes();
+				//ts2=System.currentTimeMillis();
+				//System.out.println("xxxRxBytes"+(ts2-ts1));
+				// Pkt
+				//ts1=System.currentTimeMillis();
+				sendPkt = TrafficStats.getMobileTxPackets();
+				//ts2=System.currentTimeMillis();
+				//System.out.println("xxxTxPackets"+(ts2-ts1));
+				//ts1=System.currentTimeMillis();
+				recvPkt = TrafficStats.getMobileRxPackets();
+				//ts2=System.currentTimeMillis();
+				//System.out.println("xxxRxPackets"+(ts2-ts1));
+				if (prevSend > 0 || prevRecv > 0) {
+					intervalSend = sendBytes - prevSend;
+					intervalRecv = recvBytes - prevRecv;
+				}
+				if (prevPktSend > 0 || prevPktRecv > 0) {
+					intervalPktSend = sendPkt - prevPktSend;
+					intervalPktRecv = recvPkt - prevPktRecv;
+				}
+				prevSend = sendBytes;
+				prevRecv = recvBytes;
+				prevPktSend = sendPkt;
+				prevPktRecv = recvPkt;
+				// Add to result
+
+				PhoneUtils phoneUtils = PhoneUtils.getPhoneUtils();
+				Map<String, String> params = new HashMap<String, String>();
+
+				measurementDesc = new ContextMeasurementDesc("context", null,
+						Calendar.getInstance().getTime(), null,
+						Config.DEFAULT_USER_MEASUREMENT_INTERVAL_SEC,
+						Config.DEFAULT_USER_MEASUREMENT_COUNT,
+						MeasurementTask.USER_PRIORITY, params);
+
+			    MeasurementResult result = new MeasurementResult(
+			    		phoneUtils.getDeviceInfo().deviceId,
+			    		null,"context",
+			    		System.currentTimeMillis()*1000,true,
+			    		measurementDesc);
+			    //ts1=System.currentTimeMillis();
+			    result.addResult("rssi", phoneUtils.getCurrentRssi());
+			    //ts2=System.currentTimeMillis();
+			    //System.out.println("xxxgetCurrentRssi"+(ts2-ts1));
+			    //ts1=System.currentTimeMillis();
+			    //result.addResult("Battery_level", phoneUtils.getCurrentBatteryLevel());
+			    //ts2=System.currentTimeMillis();
+			    System.out.println("xxxgetCurrentBattry"+(ts2-ts1));
+				result.addResult("incrementMobileBytesSend", intervalSend);
+				result.addResult("incrementMobileBytesRecv", intervalRecv);
+				result.addResult("incrementMobilePktSend", intervalPktSend);
+				result.addResult("incrementMobilePktRecv", intervalPktRecv);
+				result.addResult("contextMeasurementIntervel", intervel);
+				//System.out.println("contextMeasure a result="+MeasurementJsonConvertor.encodeToJson(result));
+				// System.out.println("After insertion size="+contextResult.size());
+				contextResult.add(result);
+				//ts4=System.currentTimeMillis();
+				System.out.println("xxxTotalTime"+(ts4-ts3));
+				//System.out.println("contextMeasure result="+contextResult.toString());
+				if(isBusy==0){
+					//System.out.println("isBusy==0");
+                  intervel=5000;				
+				try {
+					Thread.sleep(intervel);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				}
+				else{
+					//System.out.println("isBusy==1");
+					intervel=500;
+					try {
+						Thread.sleep(intervel);
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+			}
+		}
+	};
+
   public Checkin(Context context) {
     phoneUtils = PhoneUtils.getPhoneUtils();
     this.context = context;
+    contextResult = new Vector<MeasurementResult>();
+    if(contextThread == null){
+    	contextThread=new Thread(runnable);
+    	contextThread.start();
+    }
   }
 
   /** Shuts down the checkin thread */
@@ -206,7 +329,19 @@ public class Checkin {
         Logger.e("Error when adding " + result);
       }
     }
+    //add context result.
+	  for (MeasurementResult result : contextResult) { 
+		  try {
+			  //System.out.println("resultArray.size = "+resultArray.length());
+			  System.out.println("context jason="+MeasurementJsonConvertor.encodeToJson(result));
+	  resultArray.put(MeasurementJsonConvertor.encodeToJson(result)); }
+	  catch (JSONException e1) { Logger.e("Error when adding context " +
+	  result); } }
+	  //System.out.println("contextResult size ="+contextResult.size());
+	  contextResult.clear();
     
+    
+    /////
     sendStringMsg("Uploading " + resultArray.length() + " measurement results.");
     Logger.i("TaskSchedule.uploadMeasurementResult() uploading: " + 
         resultArray.toString());

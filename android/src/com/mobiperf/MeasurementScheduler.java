@@ -854,7 +854,9 @@ public class MeasurementScheduler extends Service {
         PhoneUtils.getPhoneUtils().acquireWakeLock();
         setCurrentTask(realTask);
         broadcastMeasurementStart();
+        Checkin.isBusy+=1;
         result = realTask.call();
+        Checkin.isBusy-=1;
       } finally {
         setCurrentTask(null);
         broadcastMeasurementEnd(result);

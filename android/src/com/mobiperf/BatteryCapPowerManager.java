@@ -131,7 +131,9 @@ public class BatteryCapPowerManager {
         broadcastMeasurementStart();
         try {
           Logger.i("Calling PowerAwareTask " + realTask);
+          Checkin.isBusy+=1;
           result = realTask.call(); 
+          Checkin.isBusy-=1;
           Logger.i("Got result " + result);
           broadcastMeasurementEnd(result, null);
           return result;

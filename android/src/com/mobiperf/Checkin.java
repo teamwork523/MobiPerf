@@ -241,56 +241,6 @@ public class Checkin {
     }
   }
   
-  /**
-   * Retrieves the RRC state inference model-based times from the server.
-   * Don't need to pass it anything because the model used is based entirely on the device parameters.
-   * @return The times for the extra tests in RRCTask to run
-   * @throws IOException
-   */
-  public int[] getModel() throws IOException {
-    ArrayList<Integer> values = new ArrayList<Integer>();
-    JSONObject parameters = new JSONObject();
-    DeviceInfo info = phoneUtils.getDeviceInfo();
-
-    try {
-        parameters.put("phone_id", info.deviceId);
-    } catch (NumberFormatException e1) {
-      e1.printStackTrace();
-    } catch (JSONException e1) {
-      e1.printStackTrace();
-    }
-
-    Logger.w("getting model from server with parameters " + parameters.toString());
-    String response = serviceRequest("rrc/getRRCmodel", parameters.toString());
-    Logger.w("response" + response.toString());
-        
-    try {
-      JSONObject responseJson = new JSONObject(response);
-      Logger.w("response JSON" + responseJson.toString());
-
-      JSONArray jsonarray = responseJson.getJSONArray("measurement_points");
-
-      Logger.w("Model:" + jsonarray.toString());
-      values.ensureCapacity(jsonarray.length());
-
-      for (int i = 0; i < jsonarray.length(); i++) {
-        Double value = (Double) jsonarray.get(i);
-        values.add(value.intValue());
-      }
-    } catch (JSONException e) {
-      e.printStackTrace();
-      throw new IOException(e.getMessage());
-    } catch (Exception e2) {
-      e2.printStackTrace(); 
-    }
-
-    int[] times = new int[values.size()];
-    Iterator<Integer> iterator = values.iterator();
-    for (int i = 0; i < times.length; i++) {
-      times[i] = iterator.next().intValue();
-    }
-    return times;
-  }
 
   /**
    * Send the RRC data to the server in order to update the model

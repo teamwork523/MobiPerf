@@ -16,8 +16,11 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.security.InvalidParameterException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -102,7 +105,7 @@ public class RRCTask extends MeasurementTask {
      * intervals, in order.  "Times" indicates the inter-packet intervals, the
      * other fields store the results.  All must be the same size.
      */
-    int[] times; // The times where the above tests were made, in units of GRANULARITY.
+    Integer[] times; // The times where the above tests were made, in units of GRANULARITY.
     int[] httpTest; // The results of the HTTP test performed at each time
     int[] dnsTest; // likewise, for the DNS test
     int[] tcpTest; // likewise, for the TCP test
@@ -116,7 +119,7 @@ public class RRCTask extends MeasurementTask {
      * These times are GRANULARITY milliseconds: if GRANULARITY is 500, then 
      * a default time of 6 means measurements are taken 500 ms apart.
      */
-    int[] defaultTimesULTasks = new int[] {0, 6, 15};
+    Integer[] defaultTimesULTasks = new Integer[] {0, 2, 4, 8, 12, 16, 22};
     
 
     public RRCDesc(String key, Date startTime,
@@ -287,28 +290,21 @@ public class RRCTask extends MeasurementTask {
         Logger.d("param: GIVEUP_THRESHHOLD "+ this.GIVEUP_THRESHHOLD);
 
         // Default assumed timers for the upper layer tests (HTTP, DNS, TCP),
-        // in units of GRANULARITY.
-        if ((val = params.get("state1_demotion_timer")) != null
-            && val.length() > 0 && Integer.parseInt(val) > 0) {
-          this.defaultTimesULTasks[0] = Integer.parseInt(val);
+        // in units of GRANULARITY.  These are set via a comma-separated list
+        // of numbers.
+        if ((val = params.get("default_demotion_timers")) != null
+            && val.length() > 0) {
+          String[] times_string = val.split("\\s*,\\s*");
+          List<String> stringList = new ArrayList<String>(Arrays.asList(times_string));
+          List<Integer> intList = new ArrayList<Integer>();
+          Iterator<String> iterator = stringList.iterator();
+          while (iterator.hasNext()) {
+            intList.add(Integer.parseInt(iterator.next()));
+          }
+          times = (Integer[])intList.toArray();
+          
         }
-        Logger.d("param: state1_demotion_timer "+ this.defaultTimesULTasks[0]);
-        if ((val = params.get("state2_demotion_timer")) != null
-            && val.length() > 0 && Integer.parseInt(val) > 0) {
-          this.defaultTimesULTasks[1] = Integer.parseInt(val);
-        }
-        Logger.d("param: state2_demotion_timer "+ this.defaultTimesULTasks[1]);
-        if ((val = params.get("state3_demotion_timer")) != null
-            && val.length() > 0 && Integer.parseInt(val) > 0) {
-          this.defaultTimesULTasks[2] = Integer.parseInt(val);
-        }
-        Logger.d("param: state3_demotion_timer "+ this.defaultTimesULTasks[2]);
-        if (this.defaultTimesULTasks[0] >= this.defaultTimesULTasks[1] ||
-            this.defaultTimesULTasks[1] >= this.defaultTimesULTasks[2]) {
-          throw new InvalidParameterException(
-              "RRCTask cannot be created due to invalid params -" +
-              " default times values must be in strict increasing orders");
-        }
+
         if (times == null) {
           times = defaultTimesULTasks;  
         }
@@ -551,23 +547,8 @@ public class RRCTask extends MeasurementTask {
 
     // Fetch the existing model from the server, if it exists
     RRCDesc desc = (RRCDesc) measurementDesc;
-    int[] times = desc.defaultTimesULTasks;
-    // TODO(Haokun): delete after debugging
-    Logger.w("Before getModel: Times value is " + Arrays.toString(desc.times));
-    try {
-      times = checkin.getModel();
-      if (times.length > 0) {
-      	// only there is a model then update the current times
-        desc.times = times;
-      }
-    } catch (IOException e1) {
-      e1.printStackTrace();
-    }
-    // TODO (Haokun): delete after debugging
-    Logger.w("After getModel: Times value is " + Arrays.toString(desc.times));
-    
     PhoneUtils utils = PhoneUtils.getPhoneUtils();
-    desc.initializeExtraTaskResults(times.length);
+    desc.initializeExtraTaskResults(desc.times.length);
     
     // Check to make sure we are on a valid (i.e. cellular) network
     if (utils.getNetwork() == "UNKNOWN" ||utils.getNetwork() == "WIRELESS" /*|| utils.getCurrentRssi() < 8*/) {
@@ -665,7 +646,7 @@ public class RRCTask extends MeasurementTask {
    * @param times
    * @param desc
    */
-  private void runHTTPTest(final int[] times, RRCDesc desc) {
+  private void runHTTPTest(final Integer[] times, RRCDesc desc) {
     /*
      * Length of time it takes to request and read in a page.
      * 
@@ -787,7 +768,7 @@ public class RRCTask extends MeasurementTask {
    * @throws MeasurementError
    */
   
-  public void runDnsTest(final int[] times, RRCDesc desc) throws MeasurementError {
+  public void runDnsTest(final Integer[] times, RRCDesc desc) throws MeasurementError {
     Logger.d("Active inference DNS test: about to begin");
     if (times.length != desc.dnsTest.length) {
     	desc.dnsTest = new int[times.length];
@@ -889,7 +870,7 @@ public class RRCTask extends MeasurementTask {
    * @param times
    * @param desc
    */
-  public void runTCPHandshakeTest(final int[] times, RRCDesc desc) {
+  public void runTCPHandshakeTest(final Integer[] times, RRCDesc desc) {
     Logger.d("Active inference TCP test: about to begin");
     if (times.length != desc.tcpTest.length) {
     	desc.tcpTest = new int[times.length];
@@ -1169,7 +1150,9 @@ public class RRCTask extends MeasurementTask {
       String line = bufferedReader.readLine();
       // Look for a specific string in /proc/net/dev listing the number of packets sent
       Pattern r = Pattern.compile("[1-9][0-9]+");
-      while (line != null && !( !line.contains("lo:") && r.matcher(line).find())) {
+      while (line != null && !( !line.contains("lo:") && 
+          !line.contains("rmnet_usb2") && !line.contains("rmnet_usb1") 
+          && r.matcher(line).find())) {
         line = bufferedReader.readLine();
       }
       if (line == null) {

@@ -91,7 +91,6 @@ public class Checkin {
   Thread runnable = new Thread() {
 		public static final String TYPE = "context";
 		public MeasurementResult result;
-		protected ContextMeasurementDesc measurementDesc;
 
 		public void run() {
 			long prevSend = 0;
@@ -146,17 +145,6 @@ public class Checkin {
 				PhoneUtils phoneUtils = PhoneUtils.getPhoneUtils();
 				Map<String, String> params = new HashMap<String, String>();
 
-				measurementDesc = new ContextMeasurementDesc("context", null,
-						Calendar.getInstance().getTime(), null,
-						Config.DEFAULT_USER_MEASUREMENT_INTERVAL_SEC,
-						Config.DEFAULT_USER_MEASUREMENT_COUNT,
-						MeasurementTask.USER_PRIORITY, params);
-
-			    MeasurementResult result = new MeasurementResult(
-			    		phoneUtils.getDeviceInfo().deviceId,
-			    		null,"context",
-			    		System.currentTimeMillis()*1000,true,
-			    		measurementDesc);
 			    //ts1=System.currentTimeMillis();
 			    result.addResult("rssi", phoneUtils.getCurrentRssi());
 			    //ts2=System.currentTimeMillis();
@@ -296,28 +284,8 @@ public class Checkin {
       }
     }
   }
+
   
-  public void uploadPhoneResult(RRCTask.RrcTestData data) {
-    String networktype = phoneUtils.getNetwork();
-    DeviceInfo info = phoneUtils.getDeviceInfo();
-
-    String[] parameters = data.toJSON(networktype, info.deviceId);
-
-    try {
-      for (String parameter: parameters) {
-        String response = serviceRequest("postphonemeasurement",
-                                         parameter);
-        JSONObject responseJson = new JSONObject(response);
-        if (!responseJson.getBoolean("success")) {
-          Logger.e("Failure posting phone measurement result");
-        }
-      }
-    } catch (JSONException e) {
-      Logger.e("JSON exception while uploading measurement result");
-    } catch (IOException e) {
-      Logger.e("IO exception while uploading measurement result");
-    }       
-  }
 
   public void uploadMeasurementResult(Vector<MeasurementResult> finishedTasks)
       throws IOException {    
@@ -378,7 +346,9 @@ public class Checkin {
   
 
   /**
-   * Send the RRC data to the server in order to update the model
+   * Send the RRC data to the server in order to update the model.
+   * 
+   * This is the only place the model gets updated
    * 
    * @param data
    * @throws IOException 
@@ -408,6 +378,50 @@ public class Checkin {
     } catch (JSONException e) {
       e.printStackTrace();
     }
+  }
+  
+  /**
+   * Impact of packet sizes on rrc inference results
+   * @param sizeData
+   */
+  public void updateSizeData(RRCTask.RRCDesc sizeData) {
+    DeviceInfo info = phoneUtils.getDeviceInfo();
+    String network_id = phoneUtils.getNetwork();
+    String[] sizeParameters = sizeData.sizeDataToJSON(network_id, info.deviceId);   
+    
+    try {
+      for (String parameter: sizeParameters) {
+        Logger.w("Uploading RRC size data: " + parameter);
+        String response = serviceRequest("rrc/uploadRRCInferenceSizes", parameter);
+        Logger.w("Response from GAE: " + response);
+      }
+    } catch (IOException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+  }  
+  
+  public void uploadPhoneResult(RRCTask.RrcTestData data, RRCTask.RRCDesc sizeData) {
+    String networktype = phoneUtils.getNetwork();
+    DeviceInfo info = phoneUtils.getDeviceInfo();
+
+    String[] parameters = data.toJSON(networktype, info.deviceId);
+    String[] sizeParameters = sizeData.sizeDataToJSON(networktype, info.deviceId);
+
+    try {
+      for (String parameter: parameters) {
+        String response = serviceRequest("postphonemeasurement",
+                                         parameter);
+        JSONObject responseJson = new JSONObject(response);
+        if (!responseJson.getBoolean("success")) {
+          Logger.e("Failure posting phone measurement result");
+        }
+      }
+    } catch (JSONException e) {
+      Logger.e("JSON exception while uploading measurement result");
+    } catch (IOException e) {
+      Logger.e("IO exception while uploading measurement result");
+    }       
   }
 
   /**

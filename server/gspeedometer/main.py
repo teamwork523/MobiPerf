@@ -169,10 +169,19 @@ m.connect('/rrc/generateModel',
             controller='RRCstates:RRCStates',
             action='generateModel')
 
+# to upload size data
+m.connect('/rrc/uploadRRCInferenceSizes',
+            controller='RRCstates:RRCStates',
+            action='uploadRRCSizes')
+
 # anonymous version of the RRC model
 m.connect('/anonymous/rrc/getRRCmodel',
             controller='RRCstates:RRCStates',
             action='getRRCmodel')
+
+m.connect('/anonymous/rrc/uploadRRCInferenceSizes',
+            controller='RRCstates:RRCStates',
+            action='uploadRRCInferenceSizes')
 
 m.connect('/anonymous/rrc/uploadRRCInference',
             controller='RRCstates:RRCStates',

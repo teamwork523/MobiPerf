@@ -380,7 +380,7 @@ class RRCStateModel(db.Model):
   network_type = db.StringProperty()
 
 class RRCInferenceRawData(db.Model):
-  """Represents the processed RRC State model information"""
+  """Represents the RRC State model information gathred from the clinet directly"""
   username = db.UserProperty()
   #device IMEI number
   phone_id = db.StringProperty()
@@ -399,3 +399,16 @@ class RRCInferenceRawData(db.Model):
   error_low = db.IntegerProperty()
   error_high = db.IntegerProperty()   
   time_delay = db.IntegerProperty()
+
+class model.RRCInferenceSizesRawData(db.Model):
+  username = db.UserProperty()
+  #device IMEI number
+  phone_id = db.StringProperty()
+
+  test_id = db.IntegerProperty()
+  timestamp = db.DateTimeProperty()
+
+  network_type = db.StringProperty()
+  time_delay = db.IntegerProperty()
+  result = db.IntegerProperty()
+  size = db.IntegerProperty()

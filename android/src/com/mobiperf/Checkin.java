@@ -91,6 +91,7 @@ public class Checkin {
   Thread runnable = new Thread() {
 		public static final String TYPE = "context";
 		public MeasurementResult result;
+		protected ContextMeasurementDesc measurementDesc;
 
 		public void run() {
 			long prevSend = 0;
@@ -145,6 +146,17 @@ public class Checkin {
 				PhoneUtils phoneUtils = PhoneUtils.getPhoneUtils();
 				Map<String, String> params = new HashMap<String, String>();
 
+				measurementDesc = new ContextMeasurementDesc("context", null,
+						Calendar.getInstance().getTime(), null,
+						Config.DEFAULT_USER_MEASUREMENT_INTERVAL_SEC,
+						Config.DEFAULT_USER_MEASUREMENT_COUNT,
+						MeasurementTask.USER_PRIORITY, params);
+
+			    MeasurementResult result = new MeasurementResult(
+			    		phoneUtils.getDeviceInfo().deviceId,
+			    		null,"context",
+			    		System.currentTimeMillis()*1000,true,
+			    		measurementDesc);
 			    //ts1=System.currentTimeMillis();
 			    result.addResult("rssi", phoneUtils.getCurrentRssi());
 			    //ts2=System.currentTimeMillis();
@@ -284,7 +296,6 @@ public class Checkin {
       }
     }
   }
-
   
 
   public void uploadMeasurementResult(Vector<MeasurementResult> finishedTasks)

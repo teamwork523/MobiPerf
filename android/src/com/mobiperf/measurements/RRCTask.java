@@ -35,6 +35,7 @@ import org.json.JSONObject;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.TrafficStats;
+import android.util.Log;
 import android.util.StringBuilderPrinter;
 
 import com.mobiperf.Checkin;
@@ -310,7 +311,7 @@ public class RRCTask extends MeasurementTask {
           while (iterator.hasNext()) {
             intList.add(Integer.parseInt(iterator.next()));
           }
-          times = (Integer[])intList.toArray();
+          times = (Integer[])intList.toArray(new Integer[intList.size()]);
           
         }
 
@@ -555,19 +556,29 @@ public class RRCTask extends MeasurementTask {
      * Call this to determine if packets have been sent since initializing.
      * @return
      */
-    boolean isTrafficInterfering() {
+    boolean isTrafficInterfering(int expectedRcv, int expectedSent) {
       packets_last = getPacketsSent();
       my_packets_last = getMyPacketsSent(); 
+        
       long rcv_packets =  (packets_last[0] - packets_first[0]);
       long sent_packets = (packets_last[1] - packets_first[1]);  
       long my_rcv_packets = (my_packets_last[0] - my_packets_first[0]);
       long my_sent_packets = (my_packets_last[1] - my_packets_first[1]);      
-      
-      if (rcv_packets == my_rcv_packets && sent_packets == my_sent_packets) {
-        Logger.d("No competing traffic, continue");
-        return false;
-      } 
-      Logger.d("");
+
+      if (my_packets_last[0] != -1) {
+        if (rcv_packets == my_rcv_packets && sent_packets == my_sent_packets) {
+          Logger.d("No competing traffic, continue");
+          return false;
+        } 
+      } else {
+        if (rcv_packets == expectedRcv && sent_packets == expectedSent) {
+          Logger.d("No competing traffic, continue");
+          return false;
+          
+        }
+      }
+      Logger.d("Sent total: " + sent_packets + " sent by me " + my_sent_packets + 
+          " rcv total: " + rcv_packets + " rcv by me "+ my_rcv_packets);
       return true;
     }
     
@@ -628,6 +639,7 @@ public class RRCTask extends MeasurementTask {
     
     public long[] getMyPacketsSent() {
       long[] retval = {-1, -1};
+      Logger.d("My uid" + android.os.Process.myUid());
       retval[0] = TrafficStats.getUidRxPackets(android.os.Process.myUid());
       retval[1] = TrafficStats.getUidTxPackets(android.os.Process.myUid());
       return retval;
@@ -936,9 +948,11 @@ public class RRCTask extends MeasurementTask {
           in.close();
           
           
-          if (!packetmonitor.isTrafficInterfering()) {
+          if (!packetmonitor.isTrafficInterfering(100,100)) {
             break;
           }   
+          startTime = 0;
+          endTime = 0;
           
         }
 
@@ -1043,11 +1057,13 @@ public class RRCTask extends MeasurementTask {
         // Check how many packets were sent again.  If the expected number
         // of packets were sent, we can finish and go to the next task.
         // Otherwise, we have to try again.
-        if (!packetmonitor.isTrafficInterfering()) {
+        if (!packetmonitor.isTrafficInterfering(3,3)) {
           break;
         }   
 
         Logger.d("Time: " + (endTime - startTime));
+        startTime = 0;
+        endTime = 0; 
       }         
       
       // If we broke out of the try-again loop, the last set of results are
@@ -1115,10 +1131,12 @@ public class RRCTask extends MeasurementTask {
           // Check how many packets were sent again.  If the expected number
           // of packets were sent, we can finish and go to the next task.
           // Otherwise, we have to try again.
-          if (!packetmonitor.isTrafficInterfering()) {
+          if (!packetmonitor.isTrafficInterfering(5, 4)) {
             socket.close();       
             break;
           }   
+          startTime = 0;
+          endTime = 0;
           socket.close();
         }
         long rtt = endTime - startTime;  
@@ -1358,11 +1376,11 @@ public class RRCTask extends MeasurementTask {
       waitTime(wait*desc.GRANULARITY, true);
       
       // Send the specified packet size
-      long[] rtts = sendMultiPackets(serverAddr, size, 10, desc.MIN, desc.port);
+      long[] rtts = sendMultiPackets(serverAddr, size, 1, desc.MIN, desc.port);
       long rttPacket = rtts[0];
       
       PacketMonitor packetmonitor = new PacketMonitor();
-      if (!packetmonitor.isTrafficInterfering()) {
+      if (!packetmonitor.isTrafficInterfering(3, 3)) {
         retval = rttPacket;
         break;
       }  
@@ -1440,11 +1458,19 @@ public class RRCTask extends MeasurementTask {
       packetsLostLarge = (int) retval[1];
       rttSmallPacket = retval[0];
 
-      if (!packetmonitor.isTrafficInterfering()) {
+      if (!packetmonitor.isTrafficInterfering(21, 21)) {
         break;
-      }   
-
+      } 
       Logger.d("Try again.");
+      rttLargePacket = -1;
+      rttSmallPacket = -1;
+      packetsLostSmall = 0;
+      packetsLostLarge = 0;
+      
+      errorCountLarge = 0;
+      errorCountSmall = 0;
+      signalStrengthLarge = 0;
+      signalStrengthSmall = 0;
     }
 
     Logger.d("3G demotion, lower bound: rtts are:" + rttLargePacket + " " + rttSmallPacket + " " + packetsLostSmall + " " + packetsLostLarge);

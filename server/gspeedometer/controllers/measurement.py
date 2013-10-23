@@ -235,6 +235,7 @@ class MeasurementType:
           ('dns', 'Run Extra DNS lookup test (true/false)'),
           ('http', 'Run Extra HTTP download test (true/false)'),
           ('tcp', 'Run Extra TCP handshake test (true/false)'),
+          ('measure_sizes', 'Run tests on parameter sizes (true/false)'),
           ('default_extra_test_timers', 'A list of timers, as comma-separated integers, to \
               be used for the TCP, DNS and HTTP tests'),
           ('result_visibility', 'Whether RRC result visible to users (true/false)')]))

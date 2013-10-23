@@ -400,7 +400,7 @@ class RRCInferenceRawData(db.Model):
   error_high = db.IntegerProperty()   
   time_delay = db.IntegerProperty()
 
-class model.RRCInferenceSizesRawData(db.Model):
+class RRCInferenceSizesRawData(db.Model):
   username = db.UserProperty()
   #device IMEI number
   phone_id = db.StringProperty()

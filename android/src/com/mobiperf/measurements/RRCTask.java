@@ -35,7 +35,6 @@ import org.json.JSONObject;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.TrafficStats;
-import android.util.Log;
 import android.util.StringBuilderPrinter;
 
 import com.mobiperf.Checkin;
@@ -110,10 +109,10 @@ public class RRCTask extends MeasurementTask {
      * other fields store the results.  All must be the same size.
      */
     Integer[] times; // The times where the above tests were made, in units of GRANULARITY.
+    int size_granularity = 200; // the spacing between sizes to test
     int[] httpTest; // The results of the HTTP test performed at each time
     int[] dnsTest; // likewise, for the DNS test
     int[] tcpTest; // likewise, for the TCP test    
-    ArrayList<RrcSizeTestData> packetSizes;
 
     // Whether or not to run the upper layer tests, i.e. the HTTP, TCP and DNS tests.
     // Disabling this flag will disable all upper layer tests.
@@ -256,6 +255,12 @@ public class RRCTask extends MeasurementTask {
           this.size = Integer.parseInt(val);
         }
         Logger.d("param: size "+ this.size);
+        // When testing size dependence, increase the 
+        if ((val = params.get("size_granularity")) != null
+            && val.length() > 0 && Integer.parseInt(val) > 0) {
+          this.size_granularity = Integer.parseInt(val);
+        }
+        Logger.d("param: size_granularity "+ this.size_granularity);
         // Whether or not to run the DNS test
         if ((val = params.get("dns")) != null
             && val.length() > 0) {
@@ -314,7 +319,6 @@ public class RRCTask extends MeasurementTask {
           times = (Integer[])intList.toArray(new Integer[intList.size()]);
           
         }
-
         if (times == null) {
           times = defaultTimesULTasks;  
         }
@@ -338,7 +342,6 @@ public class RRCTask extends MeasurementTask {
       httpTest = new int[size];
       dnsTest = new int[size];
       tcpTest = new int[size];
-      packetSizes = new ArrayList<RrcSizeTestData>();
       for (int i = 0; i < size; i++) {
         httpTest[i] = -1;
         dnsTest[i] = -1;
@@ -368,24 +371,7 @@ public class RRCTask extends MeasurementTask {
       dnsTest[i] = val;      
     }
     
-    public void setRrcSizeTestData(int i, int size, long result) throws MeasurementError {
-      if (!runUpperLayerTests) {
-        throw new MeasurementError("Data class not initialized");
-      }
-      packetSizes.add(new RrcSizeTestData(i, size, result, -1));      
-    }
-    
-    public String[] sizeDataToJSON(String networktype, String phone_id) {
-      String[] returnval = new String[packetSizes.size()];
-      try {
-        for (int i = 0; i < packetSizes.size(); i++) {
-          returnval[i] = packetSizes.get(i).toJSON(networktype, phone_id).toString();
-        }
-      } catch (JSONException e) {
-        Logger.e("Error converting RRC data to JSON");
-      }
-      return returnval;
-    }
+
   }
   
   public static class RrcSizeTestData {
@@ -442,6 +428,8 @@ public class RRCTask extends MeasurementTask {
     // Error Counts from each test
     int[] errorCountSmall;
     int[] errorCountLarge;
+
+    ArrayList<RrcSizeTestData> packetSizes;
     
     // Unique incrementing value that identifies this set of tests.
     int testId;
@@ -456,10 +444,10 @@ public class RRCTask extends MeasurementTask {
       packetsLostLarge = new int[size];
       signalStrengthSmall = new int[size];
       signalStrengthLarge = new int[size];    
-      errorCountSmall = new int[size];
-      errorCountLarge = new int[size];
-      
-      testId = getTestId(context);
+      errorCountLarge = new int[size];      
+      errorCountSmall = new int[size];        
+
+      packetSizes = new ArrayList<RrcSizeTestData>();
    
       // Set default values
       for (int i = 0; i < rttsSmall.length; i++) {
@@ -528,6 +516,22 @@ public class RRCTask extends MeasurementTask {
       this.signalStrengthLarge[index] = signal_high; 
       this.signalStrengthSmall[index] = signal_low;
     }
+    
+    public void setRrcSizeTestData(int i, int size, long result) throws MeasurementError {
+      packetSizes.add(new RrcSizeTestData(i, size, result, -1));      
+    }
+    
+    public String[] sizeDataToJSON(String networktype, String phone_id) {
+      String[] returnval = new String[packetSizes.size()];
+      try {
+        for (int i = 0; i < packetSizes.size(); i++) {
+          returnval[i] = packetSizes.get(i).toJSON(networktype, phone_id).toString();
+        }
+      } catch (JSONException e) {
+        Logger.e("Error converting RRC data to JSON");
+      }
+      return returnval;
+    }
   }
   
   /**
@@ -540,12 +544,17 @@ public class RRCTask extends MeasurementTask {
     private long[] my_packets_first;
     private long[] packets_last;
     private long[] my_packets_last;
+    boolean by_size = false;
     
     /**
      * Initialize immediately before use. Values are time-sensitive.
      */
     PacketMonitor() {
       readCurrentPacketValues();
+    }
+    
+    void setBySize() {
+      by_size = true;
     }
     
     void readCurrentPacketValues() {
@@ -571,7 +580,7 @@ public class RRCTask extends MeasurementTask {
           return false;
         } 
       } else {
-        if (rcv_packets == expectedRcv && sent_packets == expectedSent) {
+        if (rcv_packets <= expectedRcv && sent_packets <= expectedSent) {
           Logger.d("No competing traffic, continue");
           return false;
           
@@ -591,36 +600,15 @@ public class RRCTask extends MeasurementTask {
      */
     public long[] getPacketsSent() {
       long[] retval = {-1, -1};
-      /*try {
-        Process process = Runtime.getRuntime().exec("cat /proc/net/dev");
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-        String line = bufferedReader.readLine();
-        // Look for a specific string in /proc/net/dev listing the number of packets sent
-        Pattern r = Pattern.compile("[1-9][0-9]+");
-        while (line != null && !( !line.contains("lo:") && 
-            !line.contains("rmnet_usb2") && !line.contains("rmnet_usb1") 
-            && r.matcher(line).find())) {
-          line = bufferedReader.readLine();
-        }
-        if (line == null) {
-          Logger.d("No data found for data sent string");
-          return retval;
-        }
-        String[] brokenline = line.split("\\s+");
-        // /proc/net/dev appears to come in two different formats, with different fields
-        // where the value we are interested in can appear.
-        if (brokenline.length == 17) { 
-          retval[0] = Integer.parseInt(brokenline[2]);
-          retval[1] = Integer.parseInt(brokenline[10]);
-        } else {
-          retval[0] = Integer.parseInt(brokenline[3]);
-          retval[1] = Integer.parseInt(brokenline[11]);       
-        }
-      } catch (IOException e) {
-        e.printStackTrace();
-      }  */ 
-      retval[0] = TrafficStats.getMobileRxPackets();
-      retval[1] = TrafficStats.getMobileTxPackets();
+      if (by_size) {
+        retval[0] = TrafficStats.getMobileTxBytes();
+        retval[1] = TrafficStats.getMobileTxBytes();
+        
+      } else {
+        retval[0] = TrafficStats.getMobileRxPackets();
+        retval[1] = TrafficStats.getMobileTxPackets();
+        
+      }
       
       return retval;
     }
@@ -640,8 +628,13 @@ public class RRCTask extends MeasurementTask {
     public long[] getMyPacketsSent() {
       long[] retval = {-1, -1};
       Logger.d("My uid" + android.os.Process.myUid());
-      retval[0] = TrafficStats.getUidRxPackets(android.os.Process.myUid());
-      retval[1] = TrafficStats.getUidTxPackets(android.os.Process.myUid());
+      if (by_size) {
+        retval[0] = TrafficStats.getUidRxBytes(android.os.Process.myUid());
+        retval[1] = TrafficStats.getUidTxBytes(android.os.Process.myUid());        
+      } else {
+        retval[0] = TrafficStats.getUidRxPackets(android.os.Process.myUid());
+        retval[1] = TrafficStats.getUidTxPackets(android.os.Process.myUid());        
+      }
       return retval;
       
     }
@@ -752,13 +745,11 @@ public class RRCTask extends MeasurementTask {
        *  successfully complete without having to abort.
        */
       RRCTrafficControl.PauseTraffic();
-      long testId = -1;
+
+      RrcTestData data = new RrcTestData(desc.size, context);
       
       // If the RRC task is enabled
       if (desc.RRC) {
-        RrcTestData data = new RrcTestData(desc.size, context);
-        testId = data.testId;
-
         // Set up the connection to the echo server
         Logger.d("Active inference: about to begin");
         Logger.d(desc.echoHost + ":" + desc.port);
@@ -807,12 +798,8 @@ public class RRCTask extends MeasurementTask {
         
         if (desc.SIZES) {
           Logger.w("Start size dependence task");
-          if (testId == -1) {
-            testId = getTestId(context);
-          }
-          desc.testId = testId;
-          runThresholdTest(desc.times, desc, utils);   
-          checkin.updateSizeData(desc);
+          runSizeThresholdTest(desc.times, desc, data, utils);   
+          checkin.updateSizeData(data);
         }
       }
 
@@ -837,7 +824,7 @@ public class RRCTask extends MeasurementTask {
    * @param times
    * @param desc
    */
-  private void runThresholdTest(final Integer[] times, RRCDesc desc, PhoneUtils utils) {
+  private void runSizeThresholdTest(final Integer[] times, RRCDesc desc, RrcTestData data, PhoneUtils utils) {
 
     InetAddress serverAddr;
     try {
@@ -848,10 +835,11 @@ public class RRCTask extends MeasurementTask {
       return;
     }
     for (int i = 0; i < times.length; i++) {
-      for (int j = 1; j < 1024; j = j^2) {
+      //for (int j = 2; j <= 1024; j = (int) Math.pow(j, 2)) {
+      for (int j = desc.size_granularity; j <= 1024; j+= desc.size_granularity) {
         try {
-          long result = inferDemotionPacketSize(serverAddr, i, desc, j, utils);
-          desc.setRrcSizeTestData(i, j, result);
+          long result = inferDemotionPacketSize(serverAddr, times[i], desc, j, utils);
+          data.setRrcSizeTestData(times[i], j, result);
         } catch (IOException e) {
           e.printStackTrace();
         } catch (InterruptedException e) {
@@ -900,22 +888,33 @@ public class RRCTask extends MeasurementTask {
           if (stop) {
             return;
           }
+
+
           /*
            *  We keep track of the packets sent at the beginning and end
            *  of the test so we can detect if there is competing traffic
            *  anywhere on the phone.
+           *  
+           *  BEcause of the indeterminate number of packets and sizes of
+           *  traffic sent over HTTP, we measure until we begin the HTTP
+           *  connection.
+           *  
            */
           PacketMonitor packetmonitor = new PacketMonitor();
-
-          
           
           // Initiate the desired RRC state by sending a large enough packet
           // to go to DCH and waiting for the specified amount of time
           try {
             InetAddress serverAddr; 
             serverAddr = InetAddress.getByName(desc.echoHost); 
-                sendPacket(serverAddr, desc.MAX, desc);             
+            sendPacket(serverAddr, desc.MAX, desc);                    
+            
             waitTime(times[i] * desc.GRANULARITY, true);
+            
+            if (!packetmonitor.isTrafficInterfering(1,1)) {
+              break;
+            } 
+            
           } catch (InterruptedException e1) {
             e1.printStackTrace();
             continue;
@@ -926,13 +925,13 @@ public class RRCTask extends MeasurementTask {
             e.printStackTrace();
             continue;
           }          
-         
+          startTime = System.currentTimeMillis();
           HttpClient client = new DefaultHttpClient();
           HttpGet request = new HttpGet();
 
           request.setURI(new URI("http://" + desc.target));
 
-          startTime = System.currentTimeMillis();
+          
           HttpResponse response = client.execute(request);
           endTime = System.currentTimeMillis();
 
@@ -948,9 +947,7 @@ public class RRCTask extends MeasurementTask {
           in.close();
           
           
-          if (!packetmonitor.isTrafficInterfering(100,100)) {
-            break;
-          }   
+  
           startTime = 0;
           endTime = 0;
           
@@ -1366,7 +1363,7 @@ public class RRCTask extends MeasurementTask {
   public static long inferDemotionPacketSize(InetAddress serverAddr, int wait, RRCDesc desc, int size, PhoneUtils utils) throws IOException, InterruptedException {
     long retval = -1;
     for (int j = 0; j < desc.GIVEUP_THRESHHOLD; j++) {
-      Logger.d("Active inference: about to begin helper");  
+      Logger.d("Active inference: determine packet size, size " + size + " interval " + wait);  
       
 
       // Induce the highest power state
@@ -1515,13 +1512,15 @@ public class RRCTask extends MeasurementTask {
       if (stop) {
         return;
       }
-      
-      Logger.d("RRCTask: on Wifi, try again later:" + phoneUtils.getNetwork());
+
+      if (timeToWait < 60) {
+        RRCTrafficControl.UnPauseTraffic();
+      }
+      Logger.d("RRCTask: on Wifi, try again later: " + phoneUtils.getNetwork());
       if (timeToWait < 500) { // 500s, or a bit over 8 minutes.
         timeToWait = timeToWait * 2;        
       } else {
         // if it's taking a while, stop pausing traffic
-        RRCTrafficControl.UnPauseTraffic();
       }
       try {
         waitTime(timeToWait, false);

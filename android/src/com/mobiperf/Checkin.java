@@ -25,11 +25,9 @@ import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
@@ -172,7 +170,9 @@ public class Checkin {
 				result.addResult("contextMeasurementIntervel", intervel);
 				//System.out.println("contextMeasure a result="+MeasurementJsonConvertor.encodeToJson(result));
 				// System.out.println("After insertion size="+contextResult.size());
-				contextResult.add(result);
+				synchronized(contextResult) {
+	                contextResult.add(result);				  
+				}
 				//ts4=System.currentTimeMillis();
 				System.out.println("xxxTotalTime"+(ts4-ts3));
 				//System.out.println("contextMeasure result="+contextResult.toString());
@@ -203,7 +203,9 @@ public class Checkin {
   public Checkin(Context context) {
     phoneUtils = PhoneUtils.getPhoneUtils();
     this.context = context;
-    contextResult = new Vector<MeasurementResult>();
+    synchronized(contextResult) {
+      contextResult = new Vector<MeasurementResult>();      
+    }
     if(contextThread == null){
     	contextThread=new Thread(runnable);
     	contextThread.start();
@@ -309,6 +311,7 @@ public class Checkin {
       }
     }
     //add context result.
+    synchronized(contextResult) {
 	  for (MeasurementResult result : contextResult) { 
 		  try {
 			  //System.out.println("resultArray.size = "+resultArray.length());
@@ -318,6 +321,8 @@ public class Checkin {
 	  result); } }
 	  //System.out.println("contextResult size ="+contextResult.size());
 	  contextResult.clear();
+      
+    }
     
     
     /////
@@ -395,7 +400,7 @@ public class Checkin {
    * Impact of packet sizes on rrc inference results
    * @param sizeData
    */
-  public void updateSizeData(RRCTask.RRCDesc sizeData) {
+  public void updateSizeData(RRCTask.RrcTestData sizeData) {
     DeviceInfo info = phoneUtils.getDeviceInfo();
     String network_id = phoneUtils.getNetwork();
     String[] sizeParameters = sizeData.sizeDataToJSON(network_id, info.deviceId);   
@@ -412,7 +417,7 @@ public class Checkin {
     }
   }  
   
-  public void uploadPhoneResult(RRCTask.RrcTestData data, RRCTask.RRCDesc sizeData) {
+  public void uploadPhoneResult(RRCTask.RrcTestData data, RRCTask.RrcTestData sizeData) {
     String networktype = phoneUtils.getNetwork();
     DeviceInfo info = phoneUtils.getDeviceInfo();
 

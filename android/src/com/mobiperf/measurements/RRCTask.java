@@ -558,27 +558,27 @@ public class RRCTask extends MeasurementTask {
      */
     boolean isTrafficInterfering(int expectedRcv, int expectedSent) {
       packets_last = getPacketsSent();
-      my_packets_last = getMyPacketsSent(); 
+     // my_packets_last = getMyPacketsSent(); 
         
       long rcv_packets =  (packets_last[0] - packets_first[0]);
       long sent_packets = (packets_last[1] - packets_first[1]);  
-      long my_rcv_packets = (my_packets_last[0] - my_packets_first[0]);
-      long my_sent_packets = (my_packets_last[1] - my_packets_first[1]);      
+      //long my_rcv_packets = (my_packets_last[0] - my_packets_first[0]);
+     // long my_sent_packets = (my_packets_last[1] - my_packets_first[1]);      
 
-      if (my_packets_last[0] != -1) {
+      /*if (my_packets_last[0] != -1) {
         if (rcv_packets == my_rcv_packets && sent_packets == my_sent_packets) {
           Logger.d("No competing traffic, continue");
           return false;
         } 
-      } else {
+      } else {*/
         if (rcv_packets == expectedRcv && sent_packets == expectedSent) {
           Logger.d("No competing traffic, continue");
           return false;
           
         }
-      }
-      Logger.d("Sent total: " + sent_packets + " sent by me " + my_sent_packets + 
-          " rcv total: " + rcv_packets + " rcv by me "+ my_rcv_packets);
+     // }
+     // Logger.d("Sent total: " + sent_packets + " sent by me " + my_sent_packets + 
+     //     " rcv total: " + rcv_packets + " rcv by me "+ my_rcv_packets);
       return true;
     }
     
@@ -640,8 +640,8 @@ public class RRCTask extends MeasurementTask {
     public long[] getMyPacketsSent() {
       long[] retval = {-1, -1};
       Logger.d("My uid" + android.os.Process.myUid());
-      retval[0] = TrafficStats.getUidRxPackets(android.os.Process.myUid());
-      retval[1] = TrafficStats.getUidTxPackets(android.os.Process.myUid());
+      retval[0] = TrafficStats.getUidRxBytes(android.os.Process.myUid());
+      retval[1] = TrafficStats.getUidTxBytes(android.os.Process.myUid());
       return retval;
       
     }

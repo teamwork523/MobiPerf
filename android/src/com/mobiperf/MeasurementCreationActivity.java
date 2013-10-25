@@ -243,11 +243,7 @@ public class MeasurementCreationActivity extends Activity {
           Map<String, String> params = new HashMap<String, String>();
           // TODO(dominic): Support multiple servers for UDP. For now, just
           // m-lab.
-          // TODO(Hongyi): Run server on each MLab server by using
-          //               params.put("target", MLabNS.TARGET);
-          //               For now, server only available on ord01
-          params.put("target", "1.michigan.mlab2.ord01.measurement-lab.org");
-          //params.put("target", MLabNS.TARGET);
+          params.put("target", MLabNS.TARGET);
           params.put("direction", udpDir);
           params.put("packet_burst", "16");
           

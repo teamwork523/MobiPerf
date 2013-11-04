@@ -1,7 +1,13 @@
+// Copyright 2012 RobustNet Lab, University of Michigan. All Rights Reserved.
 package com.udpmeasurement;
 
 import java.util.ArrayList;
 
+/**
+ * @author Hongyi Yao
+ * ClientRecord save the information and status of a UDP burst
+ * , both uplink and downlink
+ */
 public class ClientRecord {
   public int seq;
   public int burstCount;
@@ -17,6 +23,16 @@ public class ClientRecord {
     offsetedDelayList = new ArrayList<Long>();
   }
 
+  /**
+   * Leverage the combine process during merge-sort to calculate inversion
+   * number
+   * @param packetNumList the entire array to be processed
+   * @param start start point of the first array
+   * @param mid the next to the end point of the first array 
+   *            and the start point of the second one
+   * @param end the next to the end point of the second array
+   * @return the inversion number between two arrays
+   */
   private int combine(Integer[] packetNumList, int start, int mid, int end) {
     int inversionCounter = 0;
     int[] tmp = new int[end - start + 1];
@@ -40,6 +56,13 @@ public class ClientRecord {
     return inversionCounter;
   }
 
+  /**
+   * Recursively accumulate the inversion number  
+   * @param packetNumList the entire array to be processed
+   * @param start start point of the current array
+   * @param end the next to end point of the current array
+   * @return the inversion number of current array
+   */
   private int merge(Integer[] packetNumList, int start, int end) {
     if (start < end) {
       int mid = (start + end) / 2;
@@ -53,6 +76,10 @@ public class ClientRecord {
     }
   }
 
+  /**
+   * Get inversion number as the metric of UDP out-of-order count
+   * @return the inversion number of the current UDP burst
+   */
   public int calculateInversionNumber() {
     Integer[] base = new Integer[receivedNumberList.size()];
     receivedNumberList.toArray(base);
@@ -60,6 +87,12 @@ public class ClientRecord {
     return merge(base, 0, base.length - 1);
   }
 
+  /**
+   * Calculate jitter as the standard deviation of one-way delays. 
+   * Clock sync between client and server is not required since the clock
+   * offset will be cancelled out during the calculation process
+   * @return the jitter of UDP burst
+   */
   public long calculateJitter() {
     int size = offsetedDelayList.size();
     if ( size > 1 ) {
@@ -70,7 +103,8 @@ public class ClientRecord {
 
       double jitter = 0;
       for ( long offsetedDelay : offsetedDelayList ) {
-        jitter += ((double)offsetedDelay - offsetedDelay_mean) * ((double)offsetedDelay - offsetedDelay_mean)  / (size - 1);
+        jitter += ((double)offsetedDelay - offsetedDelay_mean)
+            * ((double)offsetedDelay - offsetedDelay_mean)  / (size - 1);
       }
       jitter = Math.sqrt(jitter);
       

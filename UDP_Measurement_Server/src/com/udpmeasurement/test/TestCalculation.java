@@ -1,3 +1,4 @@
+// Copyright 2012 RobustNet Lab, University of Michigan. All Rights Reserved.
 package com.udpmeasurement.test;
 
 import static org.junit.Assert.*;
@@ -6,11 +7,18 @@ import org.junit.Test;
 
 import com.udpmeasurement.ClientRecord;
 
+/**
+ * @author Hongyi Yao
+ * Unit Test for calculation in ClientRecord.java
+ */
 public class TestCalculation {
+  /**
+   * Inversion pair of <2,3,8,6,1> are <2,1> <3,1> <8,6> <8,1> <6,1>.
+   * Inversion number is 5
+   */
   @Test
   public void testNormalInversion() {
-    // Inversion pair of <2,3,8,6,1> are <2,1> <3,1> <8,6> <8,1> <6,1>.
-    // Inversion number is 5
+
     ClientRecord cliRec = new ClientRecord();
     cliRec.receivedNumberList.add(2);
     cliRec.receivedNumberList.add(3);
@@ -22,10 +30,11 @@ public class TestCalculation {
         5, result );
   }
 
+  /**
+   * Inversion pair of <1> are null. Inversion number is 0
+   */
   @Test
   public void testInversionSingleInput() {
-    // Inversion pair of <1> are null.
-    // Inversion number is 0
     ClientRecord cliRec = new ClientRecord();
     cliRec.receivedNumberList.add(1);
     int result = cliRec.calculateInversionNumber();
@@ -33,10 +42,12 @@ public class TestCalculation {
         0, result);
   }
   
+  /**
+   * Jitter(Standard Deviation) of <1, -4, 8, 10, -8> should be 7.66 = 7
+   * Since the calculation is made in double, we do not need to consider overflow test
+   */
   @Test
   public void testNormalJitter() {
-    // Jitter(Standard Deviation) of <1, -4, 8, 10, -8> should be 7.66 = 7  
-    // Since the calculation is made in double, we do not need to consider overflow test
     ClientRecord cliRec = new ClientRecord();
     cliRec.offsetedDelayList.add(1L);
     cliRec.offsetedDelayList.add(-4L);
@@ -48,9 +59,11 @@ public class TestCalculation {
         7, result);
   }
 
+  /**
+   * Jitter(Standard Deviation) of <1> should be 0
+   */
   @Test
   public void testJitterSingleValue() {
-    // Jitter(Standard Deviation) of <1> should be 0
     ClientRecord cliRec = new ClientRecord();
     cliRec.offsetedDelayList.add(1L);
     long result = cliRec.calculateJitter();

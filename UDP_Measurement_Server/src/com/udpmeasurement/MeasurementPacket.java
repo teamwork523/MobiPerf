@@ -1,10 +1,15 @@
+// Copyright 2012 RobustNet Lab, University of Michigan. All Rights Reserved.
 package com.udpmeasurement;
 
 import java.io.*;
 
+/**
+ * @author Hongyi Yao
+ * A helper structure for packing and unpacking network message
+ */
 public class MeasurementPacket {
   public ClientIdentifier clientId;
-  
+  // the field in network message
   public int type;
   public int burstCount;
   public int packetNum;
@@ -14,11 +19,22 @@ public class MeasurementPacket {
   public int seq;
   public int udpInterval;
 
+  /**
+   * Create an empty structure
+   * @param cliId corresponding client identifier
+   */
   public MeasurementPacket(ClientIdentifier cliId) {
     this.clientId = cliId;
   }
   
-  public MeasurementPacket(ClientIdentifier cliId, byte[] rawdata) throws MeasurementError{
+  /**
+   * Unpack received message and fill the structure
+   * @param cliId corresponding client identifier
+   * @param rawdata network message
+   * @throws MeasurementError stream reader failed
+   */
+  public MeasurementPacket(ClientIdentifier cliId, byte[] rawdata)
+      throws MeasurementError{
     this.clientId = cliId;
 
     ByteArrayInputStream byteIn = new ByteArrayInputStream(rawdata);
@@ -44,6 +60,11 @@ public class MeasurementPacket {
     }
   }
   
+  /**
+   * Pack the structure to the network message
+   * @return the network message in byte[]
+   * @throws MeasurementError stream writer failed
+   */
   public byte[] getByteArray() throws MeasurementError {
 
     ByteArrayOutputStream byteOut = new ByteArrayOutputStream();

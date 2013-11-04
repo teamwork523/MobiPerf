@@ -232,13 +232,21 @@ public class UDPBurstTask extends MeasurementTask {
       inversionCounter = 0;
     }
 
-    public void AddPacket(int packetNumber, long timestamp) {
+    public void addPacket(int packetNumber, long timestamp) {
       packetNumList[size] = packetNumber;
       offsetedDelayList[size] = System.currentTimeMillis()
           - timestamp;
       size++;
     }
 
+    /**
+     * Leverage the combine process during merge-sort to calculate inversion
+     * number
+     * @param start start point of the first array
+     * @param mid the next to the end point of the first array 
+   *            and the start point of the second one
+     * @param end the next to the end point of the second array
+     */
     private void combine(int start, int mid, int end) {
       int[] tmp = new int[end - start + 1];
       int pf = start;
@@ -260,6 +268,11 @@ public class UDPBurstTask extends MeasurementTask {
         packetNumList[i] = tmp[i - start];
     }
 
+    /**
+     * Recursively accumulate the inversion number  
+     * @param start start point of the current array
+     * @param end the next to end point of the current array
+     */
     private void merge(int start, int end) {
       if (start < end) {
         int mid = (start + end) / 2;
@@ -269,12 +282,22 @@ public class UDPBurstTask extends MeasurementTask {
       }
     }
 
+    /**
+     * Get inversion number as the metric of UDP out-of-order count
+     * @return the inversion number of the current UDP burst
+     */
     public int calculateInversionNumber() {
       inversionCounter = 0;
       merge(0, size - 1);
       return inversionCounter;
     }
 
+    /**
+     * Calculate jitter as the standard deviation of one-way delays. 
+     * Clock sync between client and server is not required since the clock
+     * offset will be cancelled out during the calculation process
+     * @return the jitter of UDP burst
+     */
     public long calculateJitter() {
       if ( size > 1 ) {
         double offsetedDelay_mean = 0;
@@ -284,7 +307,8 @@ public class UDPBurstTask extends MeasurementTask {
 
         double jitter = 0;
         for ( long offsetedDelay : offsetedDelayList ) {
-          jitter += ((double)offsetedDelay - offsetedDelay_mean) * ((double)offsetedDelay - offsetedDelay_mean)  / (size - 1);
+          jitter += ((double)offsetedDelay - offsetedDelay_mean)
+              * ((double)offsetedDelay - offsetedDelay_mean)  / (size - 1);
         }
         jitter = Math.sqrt(jitter);
         
@@ -570,7 +594,7 @@ public class UDPBurstTask extends MeasurementTask {
 
       if (ptype == UDPBurstTask.PKT_DATA) {
         pktrecv++;
-        metricCalculator.AddPacket(pktnum, timestamp);
+        metricCalculator.addPacket(pktnum, timestamp);
       }
       
       try {

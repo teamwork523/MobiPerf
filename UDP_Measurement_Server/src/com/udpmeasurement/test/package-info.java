@@ -1,8 +1,6 @@
+// Copyright 2012 RobustNet Lab, University of Michigan. All Rights Reserved.
 /**
- * 
- */
-/**
- * @author laoyao
- *
+ * @author Hongyi Yao
+ * package for test case
  */
 package com.udpmeasurement.test;

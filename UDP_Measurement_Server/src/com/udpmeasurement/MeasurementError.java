@@ -1,14 +1,11 @@
+// Copyright 2012 RobustNet Lab, University of Michigan. All Rights Reserved.
 package com.udpmeasurement;
 
 /**
  * Error raised when a measurement fails.
  */
+@SuppressWarnings("serial")
 public class MeasurementError extends Exception {
-  /**
-   * 
-   */
-  private static final long serialVersionUID = 4195653891242808967L;
-  
   public MeasurementError(String reason) {
     super(reason);
   }

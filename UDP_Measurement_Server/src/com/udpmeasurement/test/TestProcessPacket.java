@@ -1,3 +1,4 @@
+// Copyright 2012 RobustNet Lab, University of Michigan. All Rights Reserved.
 package com.udpmeasurement.test;
 
 import java.lang.reflect.InvocationTargetException;
@@ -8,38 +9,49 @@ import java.net.UnknownHostException;
 import org.junit.Test;
 
 import com.udpmeasurement.ClientIdentifier;
-import com.udpmeasurement.GlobalFunctionAndConstant;
+import com.udpmeasurement.Config;
 import com.udpmeasurement.MeasurementError;
 import com.udpmeasurement.MeasurementPacket;
 import com.udpmeasurement.UDPReceiver;
 
 
+/**
+ * @author Hongyi Yao
+ * Unit test for packet processing
+ */
 public class TestProcessPacket {
   private UDPReceiver tmpReceiver;
   private Method processPacket;
   private MeasurementPacket packet;
   
-  private void init() throws NoSuchMethodException, SecurityException, UnknownHostException {
+  /**
+   * Create the receiver class, the reflection method for processPacket due to
+   * its visability and a received packet 
+   * @throws NoSuchMethodException
+   * @throws SecurityException
+   * @throws UnknownHostException
+   */
+  private void init()
+      throws NoSuchMethodException, SecurityException, UnknownHostException {
     tmpReceiver = null;
     try {
       tmpReceiver = new UDPReceiver(3131);
     } catch (MeasurementError e) {
-      // TODO Auto-generated catch block
       e.printStackTrace();
     }
     
-    processPacket = UDPReceiver.class.getDeclaredMethod("processPacket", new Class[]{MeasurementPacket.class});
+    processPacket = UDPReceiver.class.getDeclaredMethod("processPacket",
+                                        new Class[]{MeasurementPacket.class});
     processPacket.setAccessible(true);
     
     InetAddress addr = InetAddress.getByName("192.168.1.1");
     int port = 1234;
     ClientIdentifier id1 = new ClientIdentifier(addr, port);
-    byte[] rawData = new byte[GlobalFunctionAndConstant.DEFAULT_UDP_PACKET_SIZE];
+    byte[] rawData = new byte[Config.DEFAULT_UDP_PACKET_SIZE];
     packet = null;
     try {
       packet = new MeasurementPacket(id1, rawData);
     } catch (MeasurementError e) {
-      // TODO Auto-generated catch block
       e.printStackTrace();
     }
   }
@@ -49,9 +61,9 @@ public class TestProcessPacket {
       throws Throwable {
     init();
     
-    packet.type = GlobalFunctionAndConstant.PKT_REQUEST;
+    packet.type = Config.PKT_REQUEST;
     packet.burstCount = 2;  // 1 <= burstCount <= MAX_BURSTCOUNT
-    packet.packetSize = GlobalFunctionAndConstant.MIN_PACKETSIZE - 1; // short packet!
+    packet.packetSize = Config.MIN_PACKETSIZE - 1; // short packet!
     
     try {
       processPacket.invoke(tmpReceiver, packet);
@@ -68,9 +80,9 @@ public class TestProcessPacket {
       throws Throwable {
     init();
     
-    packet.type = GlobalFunctionAndConstant.PKT_REQUEST;
+    packet.type = Config.PKT_REQUEST;
     packet.burstCount = 2;  // 1 <= burstCount <= MAX_BURSTCOUNT
-    packet.packetSize = GlobalFunctionAndConstant.MAX_PACKETSIZE + 1; // long packet!
+    packet.packetSize = Config.MAX_PACKETSIZE + 1; // long packet!
     
     try {
       processPacket.invoke(tmpReceiver, packet);
@@ -87,9 +99,10 @@ public class TestProcessPacket {
       throws Throwable {
     init();
     
-    packet.type = GlobalFunctionAndConstant.PKT_REQUEST;
+    packet.type = Config.PKT_REQUEST;
     packet.burstCount = -1;  // burstCount < 1!
-    packet.packetSize = GlobalFunctionAndConstant.MAX_PACKETSIZE + 1; // MIN_PACKETSIZE <= packetSize <= MAX_PACKETSIZE
+    // MIN_PACKETSIZE <= packetSize <= MAX_PACKETSIZE
+    packet.packetSize = Config.MAX_PACKETSIZE + 1; 
     
     try {
       processPacket.invoke(tmpReceiver, packet);
@@ -107,9 +120,11 @@ public class TestProcessPacket {
       throws Throwable {
     init();
     
-    packet.type = GlobalFunctionAndConstant.PKT_REQUEST;
-    packet.burstCount = GlobalFunctionAndConstant.MAX_BURSTCOUNT + 1;  // burstCount > MAX_BURSTCOUNT!
-    packet.packetSize = GlobalFunctionAndConstant.MAX_PACKETSIZE + 1; // MIN_PACKETSIZE <= packetSize <= MAX_PACKETSIZE
+    packet.type = Config.PKT_REQUEST;
+    // burstCount > MAX_BURSTCOUNT!
+    packet.burstCount = Config.MAX_BURSTCOUNT + 1;
+    // MIN_PACKETSIZE <= packetSize <= MAX_PACKETSIZE
+    packet.packetSize = Config.MAX_PACKETSIZE + 1;
     
     try {
       processPacket.invoke(tmpReceiver, packet);
@@ -127,16 +142,17 @@ public class TestProcessPacket {
       throws Throwable {
     init();
     
-    packet.type = GlobalFunctionAndConstant.PKT_DATA;
+    packet.type = Config.PKT_DATA;
     packet.burstCount = 16;  // 1 <= burstCount <= MAX_BURSTCOUNT
-    packet.packetSize = GlobalFunctionAndConstant.DEFAULT_UDP_PACKET_SIZE; // MIN_PACKETSIZE <= packetSize <= MAX_PACKETSIZE
+    // MIN_PACKETSIZE <= packetSize <= MAX_PACKETSIZE
+    packet.packetSize = Config.DEFAULT_UDP_PACKET_SIZE;
     packet.packetNum = 0;
     packet.seq = 1024;
     
     try {
       processPacket.invoke(tmpReceiver, packet);
     } catch (InvocationTargetException e) {
-      // InvocationTargetException wrapped the real cause, just unwrap it
+      // InvocationTargetException wrapped the real exception, just unwrap it
       throw e.getCause();
     } finally {
       tmpReceiver.socket.close();
@@ -148,7 +164,7 @@ public class TestProcessPacket {
     try {
       processPacket.invoke(tmpReceiver, packet);
     } catch (InvocationTargetException e) {
-      // InvocationTargetException wrapped the real cause, just unwrap it
+      // InvocationTargetException wrapped the real exception, just unwrap it
       throw e.getCause();
     } finally {
       tmpReceiver.socket.close();

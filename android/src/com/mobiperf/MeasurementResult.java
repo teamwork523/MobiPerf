@@ -31,7 +31,6 @@ import com.mobiperf.measurements.TCPThroughputTask.TCPThroughputDesc;
 import com.mobiperf.measurements.RRCTask;
 import com.mobiperf.measurements.RRCTask.RRCDesc;
 import com.mobiperf.util.MeasurementJsonConvertor;
-import com.mobiperf.util.PhoneUtils;
 import com.mobiperf.util.Util;
 
 import java.util.Formatter;

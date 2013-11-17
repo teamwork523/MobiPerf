@@ -631,10 +631,7 @@ public class RRCTask extends MeasurementTask {
       if (by_size) {
         retval[0] = TrafficStats.getUidRxBytes(android.os.Process.myUid());
         retval[1] = TrafficStats.getUidTxBytes(android.os.Process.myUid());        
-      } else {
-        retval[0] = TrafficStats.getUidRxPackets(android.os.Process.myUid());
-        retval[1] = TrafficStats.getUidTxPackets(android.os.Process.myUid());        
-      }
+      } 
       return retval;
       
     }

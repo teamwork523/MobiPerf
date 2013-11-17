@@ -85,7 +85,7 @@ public class Checkin {
   private AccountSelector accountSelector = null;
   PhoneUtils phoneUtils;
   private Thread contextThread;
-  private Vector<MeasurementResult> contextResult;
+  private Vector<MeasurementResult> contextResult = new Vector<MeasurementResult>();;
   Thread runnable = new Thread() {
 		public static final String TYPE = "context";
 		public MeasurementResult result;

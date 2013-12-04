@@ -72,6 +72,53 @@ indexes:
 
 - kind: RRCInferenceRawData
   properties:
+  - name: network_type
   - name: phone_id
   - name: test_id
   - name: time_delay
+
+- kind: RRCInferenceRawData
+  properties:
+  - name: network_type
+  - name: phone_id
+  - name: timestamp
+  - name: time_delay
+
+- kind: RRCInferenceRawData
+  properties:
+  - name: phone_id
+  - name: test_id
+  - name: time_delay
+
+- kind: RRCInferenceRawData
+  properties:
+  - name: phone_id
+  - name: time_delay
+  - name: test_id
+
+- kind: RRCInferenceRawData
+  properties:
+  - name: phone_id
+  - name: timestamp
+
+- kind: RRCStateModel
+  properties:
+  - name: network_type=
+  - name: phone_id=
+  - name: segment_begin
+
+- kind: RRCStateModel
+  properties:
+  - name: network_type=
+  - name: segment_begin
+
+- kind: RRCStateModel
+  properties:
+  - name: phone_id
+  - name: network_type
+  - name: small
+
+- kind: RRCStateModel
+  properties:
+  - name: phone_id=
+  - name: segment_begin

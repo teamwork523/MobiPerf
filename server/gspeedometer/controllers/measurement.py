@@ -64,13 +64,16 @@ class Measurement(webapp.RequestHandler):
 
         # Write new device properties, if present
         if 'properties' in measurement_dict:
+          measurement_dict['device_properties'] = measurement_dict['properties']
+          del measurement_dict['properties']
+        if 'device_properties' in measurement_dict and measurement_dict['device_properties'] != None:
           device_properties = model.DeviceProperties(parent=device_info)
           device_properties.device_info = device_info
-          properties_dict = measurement_dict['properties']
+          properties_dict = measurement_dict['device_properties']
           # TODO(wenjiezeng): Sanitize input that contains bad fields
           util.ConvertFromDict(device_properties, properties_dict)
           # Don't want the embedded properties in the Measurement object
-          del measurement_dict['properties']
+          del measurement_dict['device_properties']
         else:
           # Get most recent device properties
           device_properties = device.GetLatestDeviceProperties(
@@ -83,6 +86,7 @@ class Measurement(webapp.RequestHandler):
         measurement.put()
     except Exception, e:
       logging.exception('Got exception posting measurements')
+      logging.exception(sys.exec_info()[0])
 
     logging.info('PostMeasurement: Done processing measurements')
     response = {'success': True}
@@ -238,6 +242,8 @@ class MeasurementType:
           ('measure_sizes', 'Run tests on parameter sizes (true/false)'),
           ('default_extra_test_timers', 'A list of timers, as comma-separated integers, to \
               be used for the TCP, DNS and HTTP tests'),
+          ('size_granularity', "For parameter size tests, the size in bytes by which to increment \
+              each packet"),
           ('result_visibility', 'Whether RRC result visible to users (true/false)')]))
     else:
       raise RuntimeError('Invalid measurement type: %s' % measurement_type)

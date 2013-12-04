@@ -18,6 +18,7 @@
 
 __author__ = 'mdw@google.com (Matt Welsh)'
 
+import sys
 # pylint: disable-msg=C6205
 try:
   # This is expected to fail on the local server.
@@ -27,6 +28,8 @@ except ImportError:
 else:
   # We could use newer version of Django, but 1.2 is the highest version that
   # Appengine provides (as of May 2011).
+  for k in [k for k in sys.modules if k.startswith('django')]:
+    del sys.modules[k]
   use_library('django', '1.2')
 
 # from google.appengine.ext.webapp import Request
@@ -169,6 +172,23 @@ m.connect('/rrc/generateModel',
             controller='RRCstates:RRCStates',
             action='generateModel')
 
+m.connect('/rrc/generateModelAll',
+            controller='smooth_prototype:ModelBuilder',
+            action='buildAll')
+
+m.connect('/rrc/debug',
+            controller='smooth_prototype:ModelBuilder',
+            action='debug')
+
+m.connect('/rrc/debugModel',
+            controller='smooth_prototype:ModelBuilder',
+            action='debug_get_models')
+
+m.connect('/rrc/debugSignalStregnth',
+            controller='signal_strength_dependence:SignalStrengthDependence',
+            action='calculateSignalStrengthDependence')
+
+
 # to upload size data
 m.connect('/rrc/uploadRRCInferenceSizes',
             controller='RRCstates:RRCStates',
@@ -190,6 +210,10 @@ m.connect('/anonymous/rrc/uploadRRCInference',
 m.connect('/anonymous/rrc/generateModelWorker',
             controller='smooth_prototype:ModelBuilder',
             action='modelBuilder')
+
+m.connect('/anonymous/rrc/generateModelAll',
+            controller='smooth_prototype:ModelBuilder',
+            action='buildAll')
             
 m.connect('/anonymous/rrc/generateModel',
             controller='RRCstates:RRCStates',

@@ -47,6 +47,7 @@ It will likely be improved throughout the course of our research.
 __author__ = 'sanae@umich.edu (Sanae Rosen)'
 
 import math
+from collections import Counter
 import sys
 import logging
 from google.appengine.ext import webapp
@@ -65,19 +66,177 @@ REMOVEDROPPED = True
 class ModelBuilder(webapp.RequestHandler):
   #logging.info('creating smooth_proto class instance')
 
+  class Averager:
+    """ Utility function to aid in averaging while removing outliers in a consistent way."""
+
+    def __init__(self):
+      self.data = []
+
+    def append(self, item):
+      if item != -1:
+        self.data.append(item)
+
+    def extend(self, item):
+      self.data.extend(item)
+
+    def find_average(self):
+      """ Find the average, excluding anything more than two standard deviations away"""
+      
+      std = self.std(self.data)
+      m = self.mean(self.data)
+
+      final = []
+#      logging.info("data before removing outliers is: " + str(self.data))
+      logging.info(str(std) + " " + str(m))
+      for i in range(len(self.data)):
+        if abs(self.data[i]-m) > std*2:
+#           logging.info("disregard" + str(self.data[i]) + " " + str(m))
+           continue
+
+        # With a small number of items (e.g. 2) we need to try excluding each and calculating the
+        # average in that way.
+#        array_withhold = self.data[:]
+#        del array_withhold[i]
+#        std_withhold = self.std(array_withhold)
+#        avg_withhold = self.mean(array_withhold)
+#        if std_withhold == None or avg_withhold == None:
+#          continue
+#        if abs(self.data[i] - avg_withhold) > std_withhold*2 and \
+#            std_withhold < abs(self.data[i] - avg_withhold):
+#          continue
+
+        final.append(self.data[i])
+      retval = -1
+#      logging.info("data after removing outliers is: " + str(final))
+      if len(final) > 0:
+        retval = self.mean(final)
+      elif len(self.data) > 0:
+        retval = self.mean(self.data)
+      try:
+        retval = int(retval)
+        return retval
+      except:
+        return -1
+
+    def mean(self, a):
+      if len(a) > 0:
+        return sum(a)/len(a)
+      else:
+        return None
+
+    def std(self, a):
+      if len(a) == 0:
+        return None
+      m = self.mean(a)
+      s = 0
+      for item in a:
+        s += (item - m)**2
+      return (s/len(a))**(0.5)
+       
+
   def cronModelBuiler(self, **unused_args):
     """Handler for '/cron/rrc/generateModelWorker'.
     This url is called once when the backend is started.
     """
     logging.info('Cron job executed!!!')
 
+
+  def debug(self, **unused_args):
+    phone_id = self.request.get('phone_id')
+    if phone_id.isdigit():
+      phone_id = util.HashDeviceId(str(phone_id))
+
+    logging.info('phone id =%s '%(phone_id))
+
+    print "</br></br>" +phone_id + "</br>"
+    network_types = self.get_network_types(phone_id)
+    for network in network_types:
+      # load all of the data for the phone id and network type from the databas
+      data_small = []
+      print "</br></br>" + network + "</br>"
+      logging.info("Network type:" + network)
+      self.debug_get_all_values(phone_id, network)
+
+
+      query = model.RRCStateModel.all()
+      query.filter("phone_id=", phone_id)
+      query.filter("network_type=", network)
+      for row in query:
+        logging.info(str(row.segment_begin) + "-" + str(row.segment_end) + ":" + str(row.avg))
+         
+    print "=============================================</br>" 
+#      print '------------------ SMALL ------------------</br>'
+#      done = True
+#      i = 0
+#      while done:
+#        done = False
+#        for j in data_small:
+#           if len(j) < 10:
+#              continue
+#           if len(j) > i:
+#             done = True
+#             print j[i], 
+#        i += 1
+#        print "</br></br>"
+#
+#      print '------------------ Large ------------------</br>'
+#      done = True
+#      i = 0
+#      while done:
+#        done = False
+#        for j in data_large:
+#           if len(j) < 10:
+#              continue
+#           if len(j) > i:
+#             done = True
+#             print j[i], 
+#        i += 1
+#        print "</br></br>"
+
+  def debug_get_models(self):
+
+
+    query = model.RRCInferenceRawData.all()
+    query.order("phone_id")
+    query.order("timestamp")
+    tests = set()
+    last_timestamp = 0
+    last_id = None
+    for row in query:
+      print "<!--", row.phone_id, "--!>"
+      print "<!--", row.timestamp, "--!>"
+      print "<!--", row.test_id, "--!>"
+      tests.add(row.test_id)
+      last_timestamp = row.timestamp
+      if last_id != row.phone_id:
+          print row.phone_id, row.timestamp , len(tests), "</br>"
+          last_timestamp = 0
+          tests = set()
+      last_id = row.phone_id
+
+
+
+    query = model.RRCStateModel.all()
+    query.order("phone_id")
+    query.order("network_type")
+    query.order("small")
+    last_id = None
+    last_network = None
+    for row in query:
+      if last_id != row.phone_id:
+        print "================================================================</br>"
+        print row.phone_id, "</br>"
+        print "================================================================</br>"
+        print row.network_type, "</br>"
+      elif last_network != row.network_type:
+        print "----------------------------------------------------------------</br>"
+        print row.network_type, "</br>"
+      print "\t", row.small, "\t", row.segment_begin, "-", row.segment_end, ":", row.avg,  row.label, "</br>"
+      last_id = row.phone_id
+      last_network = row.network_type 
+
   def modelBuilder(self, **unused_args):
-    """Handler for /rrc/generateModelWorker.
-
-    This does the actual work of inferring the RRC state machine model
-    based on the data uploaded by the user so far.  Most of the parameters
-    were determined experimentally."""
-
+    
     logging.info('Backend ModelBuilder Called!!!')
 
     phone_id = self.request.get('phone_id')
@@ -86,6 +245,25 @@ class ModelBuilder(webapp.RequestHandler):
     # Hash for anonymity
     if phone_id.isdigit():
       phone_id = util.HashDeviceId(str(phone_id))
+    self.__modelBuilder(phone_id)
+
+  def buildAll(self, **unused_args):
+    phone_id_query = model.RRCInferenceRawData.all()
+    all_ids = set()
+    for row in phone_id_query:
+      all_ids.add(row.phone_id)
+
+    for pid in all_ids:
+      self.__modelBuilder(pid)
+
+
+  def __modelBuilder(self, phone_id):
+    """Handler for /rrc/generateModelWorker.
+
+    This does the actual work of inferring the RRC state machine model
+    based on the data uploaded by the user so far.  Most of the parameters
+    were determined experimentally."""
+
 
     # Retrieve all network types for phone ID as we want a different model for i
     # each
@@ -104,11 +282,25 @@ class ModelBuilder(webapp.RequestHandler):
       # miss some legitimate latency spikes.
       count_complete = 0
       for i in data[SMALL]:
-        if len(data[SMALL]) > 30 and data[SMALL][30] != 7000: 
+        logging.info('For this test, the length is %d and the last value is %s', (len(i)), i[-1])
+        if len(i) > 21 and i[21] != 7000: 
           # 7000: lost packet or timeout (after 7 seconds)
           count_complete += 1
       # over a certain length we filter data more aggressively
-      use_large_algorithm = count_complete > 10 
+      if not count_complete >= 10:
+        logging.info('Count of complete tests is %d, aborting', count_complete)
+        self.delete_model(phone_id, network)
+        continue 
+      
+      # Now, we find the length limit
+      lengths = []
+      for i in data[SMALL]:
+        if len(i) > 20:
+          lengths.append(len(i))
+      lengths = Counter(lengths)
+      length_limit = lengths.most_common(1)
+      length_limit = length_limit[0][0]
+      length_limit = 30 # XXX
 
       # First, for every test, apply our smoothing function.
       # This gets rid of intermittent noise spikes.
@@ -121,13 +313,17 @@ class ModelBuilder(webapp.RequestHandler):
       newdata_small = []
       newdata_large = []
       for i in data[SMALL]:
-        smooth_data = self.smooth(i, use_large_algorithm)
+        smooth_data = self.smooth(i, length_limit)
         newdata_small.append(smooth_data)
       for i in data[BIG]:
-        smooth_data = self.smooth(i, use_large_algorithm)
+        smooth_data = self.smooth(i, length_limit)
         newdata_large.append(smooth_data)
-      logging.info('newdata_small %s'%newdata_small)      
-      logging.info('newdata_large %s'%newdata_large)
+      logging.info('data after smooth')
+      logging.info(data[SMALL][0])
+      logging.info(data[BIG][0])
+
+      #logging.info('newdata_small %s'%newdata_small)      
+      #logging.info('newdata_large %s'%newdata_large)
 
       if (len(newdata_small) == 0):
         return # no valid data
@@ -137,26 +333,20 @@ class ModelBuilder(webapp.RequestHandler):
       # Then, we make all the tests consistent.  If data points from one test 
       # are nothing like data points from any other test, it's probably noise 
       # and we can disregard those data points.
-      data[SMALL] = self.remove_outliers(newdata_small, use_large_algorithm)
-      data[BIG] = self.remove_outliers(newdata_large, use_large_algorithm)
-
-      if not use_large_algorithm:
-        # Smooth again if we have a low amount of data.
-        # We risk losing transition spikes, but for low data we can at least
-        # get approximate model parameters this way.
-        data[SMALL] = self.smooth(data[SMALL], use_large_algorithm)
-        data[BIG] = self.smooth(data[BIG], use_large_algorithm)
+      data[SMALL] = self.remove_outliers(newdata_small)
+      data[BIG] = self.remove_outliers(newdata_large)
 
       logging.info('data after removeoutliers and smooth')
       logging.info(data[SMALL])
+      logging.info(data[BIG])
 
       # Generate initial model.  Divide into ranges of inter-packet intervals
       # with essentially the same RTTs.  Each such range corresponds roughly to
       # either an RRC state or a period of anomalous behaviour 
       # (e.g. the high latency when transitioning from DCH to FACH).
       model = []
-      model.append(self.make_model(data[SMALL], use_large_algorithm))
-      model.append(self.make_model(data[BIG], use_large_algorithm))
+      model.append(self.make_model(data[SMALL]))
+      model.append(self.make_model(data[BIG]))
       logging.info('data in model')
       logging.info(model[SMALL])     
       logging.info(model[BIG])     
@@ -167,6 +357,9 @@ class ModelBuilder(webapp.RequestHandler):
       newmodel.append(self.simplify_model(model[SMALL], data[SMALL]))
       newmodel.append(self.simplify_model(model[BIG], data[BIG]))
       model = newmodel
+      logging.info('data in model after simplifying')
+      logging.info(model[SMALL])     
+      logging.info(model[BIG])     
 
       # Make sure the model for big packets and small packets consistent.
       # Deals with the "fach" problem basically, where for one packet size the 
@@ -180,6 +373,7 @@ class ModelBuilder(webapp.RequestHandler):
 
       self.upload_model(model, phone_id, labels, network)
 
+
   # TODO (Haokun): Double check projection effect!!!
   def get_network_types(self, phone_id):
     logging.info('Enter get_network_types:')
@@ -192,8 +386,40 @@ class ModelBuilder(webapp.RequestHandler):
       network_types.add(row.network_type)
     logging.info('Leave get_network_types:')
     return list(network_types)
+   
+  def get_all_ids(self):
+    logging.info('Enter get all ids:')
+    query = model.RRCInferenceRawData.all()
+
+  def debug_get_all_values(self, phone_id, network_type):
+    query = model.RRCInferenceRawData.all()
+    query.filter('phone_id =',phone_id)
+#    query.filter('test_id !=', 0)
+    query.order('test_id')
+    query.order('time_delay')
+    logging.info('After filtering in get_all_value %s'%query.count())
+    all_items = []
+    items = []
+    for row in query:
+      if row.time_delay <= 0:
+        if len(items) > 20:
+          all_items.append(items)
+#	  print " ".join(items)
+#         print "</br></br>"
+        items = []
+      if row.network_type != network_type:
+        continue
+      items.append(str(row.rtt_low))
+      #print str(row.time_delay) + "(" + str(row.test_id) + ") : " +str(row.rtt_low)
+    for i in range(21):
+      for item in all_items:
+         if len(item) > i:
+           print item[i]
+      print "</br>"
     
-  def get_all_values(self,phone_id, network_type):
+    
+ 
+  def get_all_values(self, phone_id, network_type):
     # Retrieve all RTT values given a phone and network type.   
     # Organize first by the test id, a unique number given to every set of 
     # tests. 
@@ -203,7 +429,10 @@ class ModelBuilder(webapp.RequestHandler):
     logging.info('network type =%s '%(network_type))
     query = model.RRCInferenceRawData.all()
     query.filter('phone_id =',phone_id)
-    query.order('test_id')
+    query.filter('network_type = ', network_type)
+#    query.filter('test_id != ', 0)
+    query.order("timestamp")
+#    query.order('test_id')
     query.order('time_delay')
     logging.info('After filtering in get_all_value %s'%query.count())
 
@@ -229,6 +458,16 @@ class ModelBuilder(webapp.RequestHandler):
         data_large[-1].append(int(row.rtt_high))
     return [data_small, data_large]            
 
+  def delete_model(self, phone_id, network):
+    query_GQL = db.GqlQuery("SELECT * FROM RRCStateModel WHERE phone_id = :1 \
+        AND network_type = :2", phone_id, network)
+    query_rows = query_GQL.count()
+    for i in range(query_rows):
+      query_get = query_GQL.get()
+      query_get.delete()
+    logging.info('NO of instances after ALL delete %s'% query_GQL.count()) 
+
+
   def upload_model(self,segments,phone_id, labels, network):
     """Delete any previous models that may have existed.
 
@@ -239,15 +478,8 @@ class ModelBuilder(webapp.RequestHandler):
 
     logging.info('Enter upload_model:%%:::')
     small = True;
-    query_GQL = db.GqlQuery("SELECT * FROM RRCStateModel WHERE phone_id = :1 \
-        AND network_type = :2", phone_id, network)
-
-    query_rows = query_GQL.count()
-    for i in range(query_rows):
-      query_get = query_GQL.get()
-      query_get.delete()                
-        
-    logging.info('NO of instances after ALL delete %s'% query_GQL.count()) 
+    self.delete_model(phone_id, network)       
+ 
     query_test = db.GqlQuery("SELECT * FROM RRCStateModel WHERE phone_id = :1",\
          phone_id)
     logging.info('Making sure all instance of this phone id is deleted. Count= \
@@ -286,16 +518,18 @@ class ModelBuilder(webapp.RequestHandler):
             
   ###############  Functions for preprocessing data  #################
 
-  def smooth(self,data, is_long):
+  def smooth(self,data, length_limit):
     # For a specific test, average out noise spikes
     # while leaving state transitions.
 
     #logging.info('Enter smooth()')
     #logging.info('Input to Smooth() is %s'%data)
-    data2 = [0 for i in range(len(data))]
+    logging.info(str(length_limit))
+    maxval = min([length_limit, len(data)])
+    data2 = [0 for i in range(maxval)]
     data2[0] = data[0]
-    data2[-1] = data[-1]
-    for i in range(1, len(data)-1):
+    data2[-1] = data[maxval-1]
+    for i in range(1, maxval-1):
       # If timeout/dropped packet,  filter out this packet
       if data[i+1] == 7000 or data[i-1] == 7000 and REMOVEDROPPED:
         data2[i] = data[i]
@@ -316,104 +550,50 @@ class ModelBuilder(webapp.RequestHandler):
       sumsquared += (i-mean)**2
     return math.sqrt(sumsquared/(len(vals)))
 
-  def remove_outlier_helper(self,row, is_long):
-    # Helper function for removing outliers
-    # If we have enough data, filter out everything less than half a standard 
-    # deviation.
-    # If we have less data, filter out just one standard deviation.
-
-    if len(row) == 0:
-      return -1
-    mean = sum(row)/len(row)
-    stdev = self.standard_deviation(row)
-    row2 = []
-    for j in row:
-      if (not is_long and abs(j-mean) < stdev ) or (is_long and abs(j-mean) < \
-            stdev/2):
-        row2.append(j)
-    if len(row2) == 0:
-      row2 = row
-    newmean = sum(row2)/len(row2)
-    return newmean
-
-  def remove_outliers(self,data, is_long):
-    # Compare all test rns and remove outliers.
-    logging.info('remove outliers')
-
+  def remove_outliers(self,data):
+    """ Compare all test runs and remove outliers. """
     datalen = max((len(x)) for x in data)
     data2 = []
     for i in range(datalen):
-      row = []
+      row = self.Averager()
       for j in range(len(data)):
-        if len(data[j]) <= i:
+        if len(data[j]) < datalen:
           continue
         if REMOVEDROPPED and data[j][i] == 7000:
           continue
         row.append(data[j][i])
-      if len(row) == 0:
-        data2.append(data2[-1])
-      else:
-        data2.append(self.remove_outlier_helper(row, is_long))
-   
+      data2.append(row.find_average())
     return data2
 
   ###############  Functions for creating and refining model  #################
 
-  def make_model(self,data, use_complex_model):
+  def make_model(self,data):
     # Here, after preprocessing, we actually produce the model.
     # divide into segments of roughly equal performance.
     # How we divide up segments is heuristic-based.
     segments = []
 
-    cur_segment = []
     cur_segment_begin = 0
     cur_segment_end = 0
     avg = -1
+    averagebuilder = self.Averager()
+    logging.info("********Starting to make model*********")
     for interpacket_time in range(len(data)):
-      cur_val = data[i]
-      if len(cur_segment) == 0:
-        cur_segment.append(curl_val)
-        cur_segment_end = i
+      cur_val = data[interpacket_time]
+      if len(averagebuilder.data) == 0:
+        averagebuilder.append(cur_val)
+        cur_segment_end = interpacket_time
         continue
-      avg = float(sum(cur_segment))/len(cur_segment)
+      avg = averagebuilder.find_average()
       # tentatively add new datapoint
-      diff = float(abs(avg - d))
+      diff = float(abs(avg - cur_val))
       start_new_segment = False
-    # More aggressive if we have more data.
-      if (use_complex_model):
-        if (diff/avg > 0.25 and cur_val < 1700 and cur_val > 200) and \
-            len(cur_segment) > 2:
-          start_new_segment = True
-        # We expect more dramatic relative jumps in value when the value is 
-        # lower.
-        if (diff/avg > 0.5 and cur_val < 200) and len(cur_segment) > 2:
-          start_new_segment = True
-        # Here, we are basically looking for the transition spike
-        if (diff/avg > 0.75) and cur_val > 200 and interpacket_time > 1:
-          start_new_segment = True
-        # We avoid accidentally starting a new segment of size 1 at the end.
-        if interpacket_time >= len(data) - 1:
-          start_new_segment = False
-      else:
-        # in general, if we have a small amount of data, we don't try and 
-        # detect any segments smaller than 1.5s. This is because these are more 
-        # likely to be due to noise.
-        if (diff/avg > 0.5 and cur_val < 1700 and cur_val > 200) and \
-            len(cur_segment) > 3:
-          start_new_segment = True
-        # We expect more dramatic relative jumps in value when the value is 
-        # lower.
-        if (diff/avg > 0.75 and cur_val < 200) and len(cur_segment) > 3:
-          start_new_segment = True
-        # Here, we are looking for the transition spike, but with a stricter 
-        # requirement on what it can look like.  We're erring on the side of 
-        # disregarding it as noise.
-        if (diff/avg > 1.0) and cur_val > 200 and interpacket_time > 1 and \
-            len(cur_segment) > 2:
-          start_new_segment = True
-        # don't start a new segment of size 2 at the end
-        if interpacket_time >= len(data) - 2:
-          start_new_segment = False
+
+      diff_limit = min([100, avg/2])
+
+      if (diff > diff_limit and diff/min(avg, cur_val) > 0.4 and \
+          (len(averagebuilder.data) > 2 or interpacket_time  < 2)):
+        start_new_segment = True
 
       # Then, we translate into segments: ranges of interpacket intervals 
       # associated with the same state (or, in the case of anomalous behaviour, 
@@ -426,21 +606,22 @@ class ModelBuilder(webapp.RequestHandler):
       #   - The first inter-packet timing associated with that segment
       #   - The last inter-packet timing associated with that segment
       # Note that the timing ranges are inclusive.
+      logging.info("when making model, id " + str(interpacket_time) + " avg: " + str( cur_val))
       if start_new_segment:
         logging.info("decide to start new segment:" +str(diff) + " " +  \
              str(cur_val) +" " +  str(avg) + " " +  str(interpacket_time)\
              + " " +  str(diff/avg))
         segments.append([avg, cur_segment_begin, cur_segment_end])
         cur_segment_begin = interpacket_time 
-        cur_segment_end = interpacket_time 
-        cur_segment = []
-      else:
-        logging.info("decided not to start new segment:" +str(diff) + " " + \
-             str(cur_val) +" " +  str(avg) + " " +  str(interpacket_time) + \
-             " " +  str(diff/avg))
-      cur_segment.append(cur_val)
+        cur_segment_end = interpacket_time
+        averagebuilder = self.Averager()
+#      else:
+#        logging.info("decided not to start new segment:" +str(diff) + " " + \
+#             str(cur_val) +" " +  str(avg) + " " +  str(interpacket_time) + \
+#             " " +  str(diff/avg))
+      averagebuilder.append(cur_val)
       cur_segment_end = interpacket_time 
-    if len(cur_segment) > 0:
+    if len(averagebuilder.data) > 0:
       segments.append([avg, cur_segment_begin, cur_segment_end])
 
     return segments
@@ -475,22 +656,18 @@ class ModelBuilder(webapp.RequestHandler):
     The new segment must be a prefix of the old segment. 
     """
     segment = segment_to_copy[:]
-    
-    # address a corner case first
     segment[BEGIN_INDEX] = min_begin
-    if segment[BEGIN_INDEX] > segment[END_INDEX]:
-      segment[END_INDEX] = segment[BEGIN_INDEX]
-    
-    # recalculate the average
-    averagebuilder = 0
-    for j in range(segment[BEGIN_INDEX], segment[END_INDEX] + 1):
-      averagebuilder += data[j]
-    segment[AVG_INDEX] = averagebuilder/(segment[END_INDEX]-\
-        segment[BEGIN_INDEX] + 1)
+    averagebuilder = self.Averager()
+    for j in range(min_begin, segment[END_INDEX] + 1):
+       averagebuilder.append(data[j])
+    if segment[BEGIN_INDEX] == segment[END_INDEX]:
+      segment[AVG_INDEX] = averagebuilder.data[0]
+    else:
+       segment[AVG_INDEX] = averagebuilder.find_average()
 
     # Another corner case
-    if i < len(model) - 1:
-      model[i+1][BEGIN_INDEX] = segment[END_INDEX] + 1
+    if i < len(model) - 2:
+       model[i+1][BEGIN_INDEX] = segment[END_INDEX] + 1
     return segment
             
   def simplify_model_helper(self, data, first, last):
@@ -512,12 +689,38 @@ class ModelBuilder(webapp.RequestHandler):
     between segments.  Unless this is a spike, it is probably overfitting.
     So we address those cases.
 
+    Also, fix any segments that turned out to not, on average, be that diferent.
+
     Thes look like this:  ___--````` and should be:  ___````
     """
+
+
 
     # We need at least three segments for this pattern to apply.
     if len(model) < 3:
       return model
+    
+    changed = True
+    while changed == True:
+      changed = False
+      new_model = model[:]
+      for i in range(1, len(model)):
+        segment = model[i]
+        last_segment = model[i-1]
+        diff = abs(segment[AVG_INDEX] - last_segment[AVG_INDEX])
+        if diff < 100 or diff/min([segment[AVG_INDEX], last_segment[AVG_INDEX]]) < 0.4:
+          new_model[i-1] = self.simplify_model_helper(data, \
+                model[i-1][BEGIN_INDEX], model[i][END_INDEX])
+          new_model[i] = None
+          changed = True
+      
+    
+      model = []
+      for i in new_model:
+        if i != None:
+          model.append(i)
+
+      logging.info("New model generated in simplify, part 1: " + str(model))
 
     new_model = model[:]
     # this pattern only applies to segments in between other segments.
@@ -546,6 +749,7 @@ class ModelBuilder(webapp.RequestHandler):
           new_model[i] = None
 
     retval = []
+    logging.info("New model generated in simplify, part 2: " + str(new_model))
 
     for i in new_model:
       if i != None:
@@ -581,13 +785,16 @@ class ModelBuilder(webapp.RequestHandler):
     # index for the current position for each model. 
     i1 = 0 
     i2 = 0
-    min_begin = 0
+    min_begin = 0 #irrelevant
 
     # Iterate over segments.
     # It's a while loop since, during this step, we might be adding segments.
     while True:
       # We stop only when we get to the end of BOTH models.
       if i1 >= len(model1) and i2 >= len(model2):
+        break
+
+      if min_begin > model1[-1][END_INDEX] or min_begin > model2[-1][END_INDEX]:
         break
 
       # If there is a mismatch in the number of segments, we go with the larger 
@@ -600,6 +807,9 @@ class ModelBuilder(webapp.RequestHandler):
 
       segment1 = model1[i1]
       segment2 = model2[i2]
+
+      if segment1 == [None] and segment2 == [None]:
+        break
 
       # If we have a mismatch in segment lengths, or there are extra segments at the end we need to build, fix te.
       if segment1[AVG_INDEX] == None or segment2[AVG_INDEX] == None or \
@@ -614,7 +824,11 @@ class ModelBuilder(webapp.RequestHandler):
               i1, min_begin)
           segment1 = self.create_regularized_segment(segment1, data1, model1, \
               i1, min_begin)
+          min_begin = segment1[END_INDEX] + 1          
+          logging.info("new segment 1, d " + str(segment1) + " " + str(i1))
+          logging.info("new segment 2, d " + str(segment2) + " " + str(i2))
           i1 += 1
+
 
         elif segment1[AVG_INDEX] != None and segment2[AVG_INDEX] != None and \
             segment2[END_INDEX] + 2 < segment1[END_INDEX]:
@@ -622,13 +836,14 @@ class ModelBuilder(webapp.RequestHandler):
               i2, min_begin)
           segment2 = self.create_regularized_segment(segment2, data2, model2, \
               i2, min_begin)
+          min_begin = segment2[END_INDEX] + 1          
+          logging.info("new segment 1, e " + str(segment1) + " " + str(i1))
+          logging.info("new segment 2, e " + str(segment2) + " " + str(i2))
           i2 += 1
 
         # If it is an off by one difference, then we pick the one with the 
         # least error and treat that as the real segment
         else:
-          i1 += 1
-          i2 += 1
 
           # find which one would differ most from the average
           s1_keep_s1 = self.segment_error(data1, segment1[AVG_INDEX], segment1)
@@ -639,25 +854,35 @@ class ModelBuilder(webapp.RequestHandler):
               segment1)
           # i.e. it will cost more to  switch s1 than s2:
           if s1_switch_s2 - s1_keep_s1 > s2_switch_s1 - s2_keep_s2:
-            logging.info('segment1, is the better segment, s1_switch_s2, and, \
-                s1_keep_s1, vs , s2_switch_s1, and, s2_keep_s2')
+            i1 += 1
+            logging.info(str(segment1) +" is the better segment, " + str(s1_switch_s2) + ", and, " +\
+                str(s1_keep_s1) + "vs ," + str(s2_switch_s1) +" and,"+ str(s2_keep_s2))
             segment2 = self.create_regularized_segment(segment1, data2, model2,\
                 i1, min_begin)
             segment1 = self.create_regularized_segment(segment1, data1, model1,\
                 i1, min_begin)
+            min_begin = segment1[END_INDEX] + 1          
+            logging.info("new segment 1, a " + str(segment1) + " " + str(i1))
+            logging.info("new segment 2, a " + str(segment2) + " " + str(i2))
           else:
-            logging.info('segment2, is the better segment, second higher, \
-                s2_switch_s1, and, s2_keep_s2, vs , s1_switch_s2 and \
-                s1_keep_s1')
+            i2 += 1
+            logging.info(str(segment2) +" is the better segment, second higher, " + str(s2_switch_s1) + ", and, " +\
+                str(s2_keep_s2) + "vs ," + str(s1_switch_s2) +" and,"+ str(s1_keep_s1))
             segment1 = self.create_regularized_segment(segment2, data1, \
                 model1, i2, min_begin)
             segment2 = self.create_regularized_segment(segment2, data2, \
                 model2, i2, min_begin)
+            min_begin = segment2[END_INDEX] + 1          
+            logging.info("new segment 1, b " + str(segment1) + " " + str(i1))
+            logging.info("new segment 2, b " + str(segment2) + " " + str(i2))
       else:
         segment1 = self.create_regularized_segment(segment1, data1, model1, \
             i1, min_begin)
         segment2 = self.create_regularized_segment(segment2, data2, model2, \
             i2, min_begin)
+        logging.info("new segment 1, c " + str(segment1) + " " + str(i1))
+        logging.info("new segment 2, c " + str(segment2) + " " + str(i2))
+        min_begin = segment1[END_INDEX] + 1          
 
         i1 += 1
         i2 += 1
@@ -672,165 +897,72 @@ class ModelBuilder(webapp.RequestHandler):
     """Must be run after regularizing: finds a label for every segment
        Heuristic-based, not as thoroughly tested as model generation.
        I have been manually verifying these where they are used."""
-    labels = []
 
-    # While we don't necessarily expect to see all of these, they should 
-    # appear in strict order.
-    (INIT, STATE_DCH, STATE_FACH, STATE_PCH) = range(4)
-    state = INIT
-    pch_state_indices = []
-    has_fach = False
+    (HIGH_POWER, FACH_LIKE, LOW_POWER, MEDIUM_POWER, ANOMALOUS, INIT) = \
+        ("High power", "Fach-like", "Low power", "medium power", "anomalous", "init")
+
+    labels = [INIT for i in range(len(model_small))]
+
+    # Step 1: All anomalous states are those where values do not monotonically increase.
+    # We expect states to monotonically increase.
+
+    min_val = -1
+    min_index = -1
+    max_val = -1
+    max_index = -1
 
     for i in range(len(model_small)):
-      small_rtt = model_small[i][AVG_INDEX]
-      big_rtt = model_large[i][AVG_INDEX]
+      if i != len(model_small)-1 and model_small[i+1][AVG_INDEX] < model_small[i][AVG_INDEX] \
+          and  model_large[i+1][AVG_INDEX] < model_large[i][AVG_INDEX]:
+         labels[i] = ANOMALOUS
+      else:
+        if model_small[i][AVG_INDEX] + model_large[i][AVG_INDEX] < min_val or min_index == -1:
+          min_val = model_small[i][AVG_INDEX] + model_large[i][AVG_INDEX]
+          min_index = i
+        elif model_small[i][AVG_INDEX] + model_large[i][AVG_INDEX] > max_val or max_index == -1:
+          max_val = model_small[i][AVG_INDEX] + model_large[i][AVG_INDEX]
+          max_index = i
 
-      segment_len = model_small[i][END_INDEX] - model_small[i][BEGIN_INDEX]
-      DCH_SMALL_RTT_MAX = 200
-      DCH_BIG_RTT_MAX = 200
-      DCH_DIFF = 1.75
+    # Step 2: We find the highest and lowest power state and label them.
+    labels[min_index] = HIGH_POWER
+    labels[max_index] = LOW_POWER
 
-      FACH_SMALL_RTT_MAX = 400
-      FACH_BIG_RTT_MAX = 1700
-      FACH_RATIO_CUTOFF = 1.75
+    # Step 3: Label the remainer
+    for i in range(len(labels)):
+      if labels[i] != INIT:
+        continue
+      if model_small[i][AVG_INDEX]/model_large[i][AVG_INDEX] < 0.7 and \
+          model_large[i][AVG_INDEX]-model_small[i][AVG_INDEX]>50:
+        labels[i] = FACH_LIKE
+      else:
+        labels[i] = MEDIUM_POWER
 
-      FACH_ANOMALOUS_BIG_MIN = 1500
-      FACH_ANOMALOUS_SMALL_MIN = 1000
-
-      PCH_SMALL_MIN = 300
-      PCH_BIG_MIN = 400
-
-      # Basically, go through each segment and figure out the state.
-      # The previous state constrains what the next state could plausibly be.
-      # Then, we use ranges of plausible RTT values to figure it out.
-
-      # The first one musth be DCH or Anomalous:
-      if (state == INIT):
-        if (small_rtt <  DCH_SMALL_RTT_MAX) and (big_rtt < DCH_BIG_RTT_MAX) \
-            and (float(big_rtt)/float(small_rtt) < DCH_DIFF) or (big_rtt < 150): 
-          # We have certain expectations for the range of RTT values in DCH.  
-          # Otherwise, we label as having unusually high RTTs.
-          labels.append("DCH")
-        else:
-          # In most cases we should treat this as DCH, but the fact that the 
-          # RTT is unusually high may be interesting.
-          labels.append("DCH (high RTT) ") 
-        state = STATE_DCH
-
-      # Then, our options are continue in DCH/Anomalous, or transition to 
-      # FACH/anomalous-FACH or DCH
-      elif (state == STATE_DCH):
-        # DCH is characterized by small RTTs that are similar
-        if (small_rtt < DCH_SMALL_RTT_MAX) and (big_rtt < DCH_BIG_RTT_MAX) and \
-            (float(big_rtt)/small_rtt < 2):
-          labels.append("Anomalous-DCH") # We should only see one DCH-like state
-        # FACH is characterized by moderate RTTs and significant differences 
-        # between RTTs based on packet size
-        elif (small_rtt < FACH_SMALL_RTT_MAX) and (big_rtt < FACH_BIG_RTT_MAX) \
-            and (float(big_rtt)/small_rtt > 1.75):
-          labels.append("FACH")
-          state = STATE_FACH
-        # FACH transitions are characterized by very high RTTs and short 
-        # segments
-        elif (small_rtt > FACH_ANOMALOUS_SMALL_MIN or big_rtt > \
-            FACH_ANOMALOUS_BIG_MIN) and segment_len < 8:
-          labels.append("Anomalous-FACH")
-          state = STATE_FACH
-        # PCH is characterized by high RTTs, though not as high as FACH 
-        # transitions
-        elif small_rtt > PCH_SMALL_MIN and big_rtt > PCH_BIG_MIN:
-          labels.append("PCH")
-          pch_state_indices.append(i)
-          state = STATE_PCH
-        else:
-          labels.append("Anomalous")
-      # From FACH, we can continue to be in FACH, can be an an anomalous FACH 
-      # state, or can go to PCH.
-      elif (state == STATE_FACH):
-        if (small_rtt < FACH_SMALL_RTT_MAX) and (big_rtt < FACH_BIG_RTT_MAX) \
-            and (float(big_rtt)/small_rtt > 1.75):
-          labels.append("FACH")
-          state = STATE_FACH
-        elif small_rtt > FACH_ANOMALOUS_SMALL_MIN or big_rtt > \
-            FACH_ANOMALOUS_BIG_MIN and segment_len < 8:
-          labels.append("Anomalous-FACH")
-          state = STATE_FACH
-        elif small_rtt > PCH_SMALL_MIN and big_rtt > PCH_BIG_MIN:
-          labels.append("PCH")
-          state = STATE_PCH
-          pch_state_indices.append(i)
-          # Note: Anomalous FACH, i.e. transition behavior, should always be 
-          # less than PCH. If not, it needs correcting.
-          if (labels[-2] == "Anomalous-FACH"):
-            last_small_rtt = model_small[i-1][AVG_INDEX]
-            last_big_rtt = model_large[i-1][AVG_INDEX]
-            if last_small_rtt < small_rtt and last_big_rtt < big_rtt*1.5 and \
-                float(last_big_rtt)/last_small_rtt > 1.75:
-              labels[-2] = "FACH"
-        else:
-          labels.append("Anomalous")
-        has_fach = True
-
-      # From PCH, we have to stay in PCH.
-      elif (state == STATE_PCH):
-        # if there are two PCH states, one is anomalous.  Go through and mark 
-        # the biggest ones.
-        labels.append("PCH")
-        min_index = i
-        min_val = small_rtt
-        for j in pch_state_indices:
-          if small_rtt > model_small[j][AVG_INDEX]:
-            min_index = j
-            min_val = model_small[j][AVG_INDEX]
-
-        pch_state_indices.append(i)
-        #logging.info("min val for pch is %s" %min_val)
-        for j in pch_state_indices:
-          if j != min_index:
-            labels[j] = "Anomalous-PCH"      
-                
-        # Now that we've figured out where PCH is, we can go back and confirm 
-        # previous assumptions we may have made
-        if len(pch_state_indices) > 0 and labels[pch_state_indices[0]] == \
-            "Anomalous-PCH" and not has_fach:
-          labels[pch_state_indices[0]] = "Anomalous-FACH"
-          pch_state_indices = pch_state_indices[1:]
-          has_fach = True
-
-          # Now, check if the second one is really FACH
-          fach_candidate = pch_state_indices[0]
-          small_rtt_candidate = model_small[fach_candidate][AVG_INDEX]
-          big_rtt_candidate = model_large[fach_candidate][AVG_INDEX]
-          if (small_rtt_candidate < FACH_SMALL_RTT_MAX) and \
-              (big_rtt_candidate < FACH_BIG_RTT_MAX) and \
-              (float(big_rtt_candidate)/small_rtt_candidate > 1.75):
-            labels[fach_candidate] = "FACH"
-
-      logging.info("Chose label %s based on small_rtt: %s, big_rtt: %s, ratio: \
-          %s" % (labels[-1], small_rtt, big_rtt, float(big_rtt)/small_rtt))
     return labels
+\
+
 
   ##########This is currently not used and it yet to be modified to be compatible with GAE---START ##################
   # Sanae- not needed
-  def get_all_devices_to_process():
-    #Get a list of all IDs that either do not have a model, or have more recent data than the most recent model.
-    #       TODO: probably a more efficient way of doing the lookup.
-    connection = get_database()
-    cursor = connection.cursor()
-    cursor.execute("SELECT DISTINCT phone_id, max(test_id) FROM rrc_inference")
-    ids_initial = cursor.fetchall()
-    ids_to_check = []
-    for i in ids_initial:
-            ID = i[0]
-            new_test_id = i[1]
-            rows_returned = cursor.execute("SELECT MAX(test_id) FROM models WHERE phone_id = %s", [ID])
-            if rows_returned == 0:
-                    ids_to_check.append(i)
-            else:
-                    old_test_id = cursor.fetchone()[0]
-                    if old_test_id != new_test_id:
-                            ids_to_check.append(i)  
-                    
-    close_database(connection)
-    return ids_to_check
+#  def get_all_devices_to_process():
+#    #Get a list of all IDs that either do not have a model, or have more recent data than the most recent model.
+#    #       TODO: probably a more efficient way of doing the lookup.
+#    connection = get_database()
+#    cursor = connection.cursor()
+#    cursor.execute("SELECT DISTINCT phone_id, max(test_id) FROM rrc_inference WHERE network_type \
+#        != \"1\" and network_type !=\"0\"")
+#    ids_initial = cursor.fetchall()
+#    ids_to_check = []
+#    for i in ids_initial:
+#            ID = i[0]
+#            new_test_id = i[1]
+#            rows_returned = cursor.execute("SELECT MAX(test_id) FROM models WHERE phone_id = %s", [ID])
+#            if rows_returned == 0:
+#                    ids_to_check.append(i)
+#            else:
+#                    old_test_id = cursor.fetchone()[0]
+#                    if old_test_id != new_test_id:
+#                            ids_to_check.append(i)  
+#                    
+#    close_database(connection)
+#    return ids_to_check
 

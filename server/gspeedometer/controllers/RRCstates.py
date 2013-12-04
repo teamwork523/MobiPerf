@@ -16,7 +16,7 @@ from google.appengine.api import taskqueue
 from gspeedometer import config
 
 class RRCStates(webapp.RequestHandler):
-   """ Interact with RRC-related data stored in the database"""
+    """ Interact with RRC-related data stored in the database"""
   
     def uploadRRCInference(self, **unused_args):
         """Handler for uploadRRCInference request generated from client.
@@ -83,28 +83,23 @@ class RRCStates(webapp.RequestHandler):
 
 	data = model.RRCInferenceSizesRawData()
         # ID that uniquely identifies each phone, hashed
-        rawdata.phone_id = util.HashDeviceId(\
+        data.phone_id = util.HashDeviceId(\
             str(getRRCInferenceReqParam['phone_id']))
 
         # Test ID that is unique for each device and set of tests
-        rawdata.test_id = getRRCInferenceReqParam['test_id']
-        rawdata.network_type = getRRCInferenceReqParam['network_type']
+        data.test_id = getRRCInferenceReqParam['test_id']
+        data.network_type = getRRCInferenceReqParam['network_type']
 
-        rawdata.size = getRRCInferenceReqParam['size']
-	rawdata.result = getRRCInferenceReqParam['result']
+        data.size = getRRCInferenceReqParam['size']
+	data.result = getRRCInferenceReqParam['result']
 
         # The corresponding inter-packet interval
-        rawdata.time_delay = getRRCInferenceReqParam['time_delay']
+        data.time_delay = getRRCInferenceReqParam['time_delay']
         #get the current time in utc
-        rawdata.timestamp = datetime.datetime.utcnow()
-        rawdata.put()
+        data.timestamp = datetime.datetime.utcnow()
+        data.put()
         return
  
-         
-
-
-
-        
     def generateModel(self, **unused_args):
         """Handler for generateModel request generated from client"""
         logging.info('Inside generateModel: input param: %s', self.request.body)        

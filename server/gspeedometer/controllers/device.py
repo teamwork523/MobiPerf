@@ -105,7 +105,7 @@ class Device(webapp.RequestHandler):
           'error': errormsg,
           'device_id': device_id,
           'dev': device,
-          'properties': properties,
+          'device_properties': properties,
           'measurements': measurements,
           'more_measurements_link': more_measurements_link,
           'schedule': cur_schedule,

@@ -25,11 +25,9 @@ import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
@@ -79,16 +77,23 @@ import com.mobiperf.util.PhoneUtils;
  * Handles checkins with the SpeedometerApp server.
  */
 public class Checkin {
-  public static int isBusy=0;
-  private static final int POST_TIMEOUT_MILLISEC = 20 * 1000;
-  private Context context;
-  private Date lastCheckin;
-  private volatile Cookie authCookie = null;
-  private AccountSelector accountSelector = null;
-  PhoneUtils phoneUtils;
-  private Thread contextThread;
-  private Vector<MeasurementResult> contextResult;
-  Thread runnable = new Thread() {
+	public static int isBusy = 0;
+	private static final int POST_TIMEOUT_MILLISEC = 20 * 1000;
+	private Context context;
+	private Date lastCheckin;
+	private volatile Cookie authCookie = null;
+	private AccountSelector accountSelector = null;
+	PhoneUtils phoneUtils;
+	private Thread contextThread;
+	private Vector<MeasurementResult> contextResult;
+	private Object contextResultLock = new Object();
+	/**
+	 * This tread is used for collecting context information in a time interval.
+	 * It collect mobile bytes/packets send/receive during a time interval. It
+	 * will adjust the interval length according to how many tasks is currently
+	 * running.
+	 */
+	Thread runnable = new Thread() {
 		public static final String TYPE = "context";
 		public MeasurementResult result;
 		protected ContextMeasurementDesc measurementDesc;
@@ -107,28 +112,13 @@ public class Checkin {
 			long recvPkt = 0;
 			long intervalPktSend = 0;
 			long intervalPktRecv = 0;
-			long ts1=0,ts3=0,ts4=0;
-			long ts2=0;
-			 int intervel = 5000;
+			int interval = 5000;
 			while (true) {
-				//ts3=System.currentTimeMillis();
-				//ts1=System.currentTimeMillis();
+
 				sendBytes = TrafficStats.getMobileTxBytes();
-				//ts2=System.currentTimeMillis();
-				//System.out.println("xxxTxBytes"+(ts2-ts1));
-				//ts1=System.currentTimeMillis();
 				recvBytes = TrafficStats.getMobileRxBytes();
-				//ts2=System.currentTimeMillis();
-				//System.out.println("xxxRxBytes"+(ts2-ts1));
-				// Pkt
-				//ts1=System.currentTimeMillis();
 				sendPkt = TrafficStats.getMobileTxPackets();
-				//ts2=System.currentTimeMillis();
-				//System.out.println("xxxTxPackets"+(ts2-ts1));
-				//ts1=System.currentTimeMillis();
 				recvPkt = TrafficStats.getMobileRxPackets();
-				//ts2=System.currentTimeMillis();
-				//System.out.println("xxxRxPackets"+(ts2-ts1));
 				if (prevSend > 0 || prevRecv > 0) {
 					intervalSend = sendBytes - prevSend;
 					intervalRecv = recvBytes - prevRecv;
@@ -152,35 +142,29 @@ public class Checkin {
 						Config.DEFAULT_USER_MEASUREMENT_COUNT,
 						MeasurementTask.USER_PRIORITY, params);
 
-			    MeasurementResult result = new MeasurementResult(
-			    		phoneUtils.getDeviceInfo().deviceId,
-			    		null,"context",
-			    		System.currentTimeMillis()*1000,true,
-			    		measurementDesc);
-			    //ts1=System.currentTimeMillis();
-			    result.addResult("rssi", phoneUtils.getCurrentRssi());
-			    //ts2=System.currentTimeMillis();
-			    //System.out.println("xxxgetCurrentRssi"+(ts2-ts1));
-			    //ts1=System.currentTimeMillis();
-			    //result.addResult("Battery_level", phoneUtils.getCurrentBatteryLevel());
-			    //ts2=System.currentTimeMillis();
-			    System.out.println("xxxgetCurrentBattry"+(ts2-ts1));
+				MeasurementResult result = new MeasurementResult(
+						phoneUtils.getDeviceInfo().deviceId, null, "context",
+						System.currentTimeMillis() * 1000, true,
+						measurementDesc);
+				result.addResult("rssi", phoneUtils.getCurrentRssi());
 				result.addResult("incrementMobileBytesSend", intervalSend);
 				result.addResult("incrementMobileBytesRecv", intervalRecv);
 				result.addResult("incrementMobilePktSend", intervalPktSend);
 				result.addResult("incrementMobilePktRecv", intervalPktRecv);
-				result.addResult("contextMeasurementIntervel", intervel);
+				result.addResult("contextMeasurementIntervel", interval);
 				//System.out.println("contextMeasure a result="+MeasurementJsonConvertor.encodeToJson(result));
 				// System.out.println("After insertion size="+contextResult.size());
-				contextResult.add(result);
+				synchronized(contextResultLock) {
+			                contextResult.add(result);				  
+				}
 				//ts4=System.currentTimeMillis();
-				System.out.println("xxxTotalTime"+(ts4-ts3));
+				//System.out.println("xxxTotalTime"+(ts4-ts3));
 				//System.out.println("contextMeasure result="+contextResult.toString());
 				if(isBusy==0){
 					//System.out.println("isBusy==0");
-                  intervel=5000;				
+				    interval=5000;				
 				try {
-					Thread.sleep(intervel);
+					Thread.sleep(interval);
 				} catch (InterruptedException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -188,9 +172,9 @@ public class Checkin {
 				}
 				else{
 					//System.out.println("isBusy==1");
-					intervel=500;
+				  interval=500;
 					try {
-						Thread.sleep(intervel);
+						Thread.sleep(interval);
 					} catch (InterruptedException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
@@ -203,7 +187,9 @@ public class Checkin {
   public Checkin(Context context) {
     phoneUtils = PhoneUtils.getPhoneUtils();
     this.context = context;
-    contextResult = new Vector<MeasurementResult>();
+    synchronized(contextResultLock) {
+      contextResult = new Vector<MeasurementResult>();      
+    }
     if(contextThread == null){
     	contextThread=new Thread(runnable);
     	contextThread.start();
@@ -244,7 +230,7 @@ public class Checkin {
       status.put("manufacturer", info.manufacturer);
       status.put("model", info.model);
       status.put("os", info.os);
-      status.put("properties", 
+      status.put("device_properties", 
           MeasurementJsonConvertor.encodeToJson(phoneUtils.getDeviceProperty()));
       
       Logger.d(status.toString());
@@ -309,6 +295,7 @@ public class Checkin {
       }
     }
     //add context result.
+    synchronized(contextResultLock) {
 	  for (MeasurementResult result : contextResult) { 
 		  try {
 			  //System.out.println("resultArray.size = "+resultArray.length());
@@ -318,6 +305,8 @@ public class Checkin {
 	  result); } }
 	  //System.out.println("contextResult size ="+contextResult.size());
 	  contextResult.clear();
+      
+    }
     
     
     /////
@@ -395,7 +384,7 @@ public class Checkin {
    * Impact of packet sizes on rrc inference results
    * @param sizeData
    */
-  public void updateSizeData(RRCTask.RRCDesc sizeData) {
+  public void updateSizeData(RRCTask.RrcTestData sizeData) {
     DeviceInfo info = phoneUtils.getDeviceInfo();
     String network_id = phoneUtils.getNetwork();
     String[] sizeParameters = sizeData.sizeDataToJSON(network_id, info.deviceId);   
@@ -412,7 +401,7 @@ public class Checkin {
     }
   }  
   
-  public void uploadPhoneResult(RRCTask.RrcTestData data, RRCTask.RRCDesc sizeData) {
+  public void uploadPhoneResult(RRCTask.RrcTestData data, RRCTask.RrcTestData sizeData) {
     String networktype = phoneUtils.getNetwork();
     DeviceInfo info = phoneUtils.getDeviceInfo();
 

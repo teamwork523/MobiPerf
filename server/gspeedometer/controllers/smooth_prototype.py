@@ -50,6 +50,7 @@ import math
 from collections import Counter
 import sys
 import logging
+import numpy
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp.util import run_wsgi_app
 from gspeedometer import wsgi
@@ -86,24 +87,10 @@ class ModelBuilder(webapp.RequestHandler):
       m = self.mean(self.data)
 
       final = []
-#      logging.info("data before removing outliers is: " + str(self.data))
       logging.info(str(std) + " " + str(m))
       for i in range(len(self.data)):
         if abs(self.data[i]-m) > std*2:
-#           logging.info("disregard" + str(self.data[i]) + " " + str(m))
            continue
-
-        # With a small number of items (e.g. 2) we need to try excluding each and calculating the
-        # average in that way.
-#        array_withhold = self.data[:]
-#        del array_withhold[i]
-#        std_withhold = self.std(array_withhold)
-#        avg_withhold = self.mean(array_withhold)
-#        if std_withhold == None or avg_withhold == None:
-#          continue
-#        if abs(self.data[i] - avg_withhold) > std_withhold*2 and \
-#            std_withhold < abs(self.data[i] - avg_withhold):
-#          continue
 
         final.append(self.data[i])
       retval = -1
@@ -165,36 +152,8 @@ class ModelBuilder(webapp.RequestHandler):
         logging.info(str(row.segment_begin) + "-" + str(row.segment_end) + ":" + str(row.avg))
          
     print "=============================================</br>" 
-#      print '------------------ SMALL ------------------</br>'
-#      done = True
-#      i = 0
-#      while done:
-#        done = False
-#        for j in data_small:
-#           if len(j) < 10:
-#              continue
-#           if len(j) > i:
-#             done = True
-#             print j[i], 
-#        i += 1
-#        print "</br></br>"
-#
-#      print '------------------ Large ------------------</br>'
-#      done = True
-#      i = 0
-#      while done:
-#        done = False
-#        for j in data_large:
-#           if len(j) < 10:
-#              continue
-#           if len(j) > i:
-#             done = True
-#             print j[i], 
-#        i += 1
-#        print "</br></br>"
 
   def debug_get_models(self):
-
 
     query = model.RRCInferenceRawData.all()
     query.order("phone_id")
@@ -417,8 +376,6 @@ class ModelBuilder(webapp.RequestHandler):
            print item[i]
       print "</br>"
     
-    
- 
   def get_all_values(self, phone_id, network_type):
     # Retrieve all RTT values given a phone and network type.   
     # Organize first by the test id, a unique number given to every set of 
@@ -588,7 +545,6 @@ class ModelBuilder(webapp.RequestHandler):
       # tentatively add new datapoint
       diff = float(abs(avg - cur_val))
       start_new_segment = False
-
       diff_limit = min([100, avg/2])
 
       if (diff > diff_limit and diff/min(avg, cur_val) > 0.4 and \
@@ -615,10 +571,6 @@ class ModelBuilder(webapp.RequestHandler):
         cur_segment_begin = interpacket_time 
         cur_segment_end = interpacket_time
         averagebuilder = self.Averager()
-#      else:
-#        logging.info("decided not to start new segment:" +str(diff) + " " + \
-#             str(cur_val) +" " +  str(avg) + " " +  str(interpacket_time) + \
-#             " " +  str(diff/avg))
       averagebuilder.append(cur_val)
       cur_segment_end = interpacket_time 
     if len(averagebuilder.data) > 0:
@@ -681,7 +633,7 @@ class ModelBuilder(webapp.RequestHandler):
     return [avg, first, last]
 
   def simplify_model(self, model, data):
-    """
+n  bels """
     Filter out an occasional artifact of our process where overfitting can 
     happen.
 
@@ -940,29 +892,4 @@ class ModelBuilder(webapp.RequestHandler):
     return labels
 \
 
-
-  ##########This is currently not used and it yet to be modified to be compatible with GAE---START ##################
-  # Sanae- not needed
-#  def get_all_devices_to_process():
-#    #Get a list of all IDs that either do not have a model, or have more recent data than the most recent model.
-#    #       TODO: probably a more efficient way of doing the lookup.
-#    connection = get_database()
-#    cursor = connection.cursor()
-#    cursor.execute("SELECT DISTINCT phone_id, max(test_id) FROM rrc_inference WHERE network_type \
-#        != \"1\" and network_type !=\"0\"")
-#    ids_initial = cursor.fetchall()
-#    ids_to_check = []
-#    for i in ids_initial:
-#            ID = i[0]
-#            new_test_id = i[1]
-#            rows_returned = cursor.execute("SELECT MAX(test_id) FROM models WHERE phone_id = %s", [ID])
-#            if rows_returned == 0:
-#                    ids_to_check.append(i)
-#            else:
-#                    old_test_id = cursor.fetchone()[0]
-#                    if old_test_id != new_test_id:
-#                            ids_to_check.append(i)  
-#                    
-#    close_database(connection)
-#    return ids_to_check
 

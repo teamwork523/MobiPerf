@@ -243,16 +243,13 @@ public class MeasurementCreationActivity extends Activity {
           Map<String, String> params = new HashMap<String, String>();
           // TODO(dominic): Support multiple servers for UDP. For now, just
           // m-lab.
-          // Hongyi: temporarily available in only one server of MLab
-          params.put("target", "1.michigan.mlab2.ord01.measurement-lab.org");
-          //params.put("target", MLabNS.TARGET);
+          params.put("target", MLabNS.TARGET);
           params.put("direction", udpDir);
           params.put("packet_burst", "16");
           
           // Get UDP Burst interval
           EditText UDPBurstIntervalText = (EditText) findViewById(R.id.UDPBurstIntervalText);
           params.put("udp_interval", UDPBurstIntervalText.getText().toString());
-          //params.put("udp_interval", "1");
           
           UDPBurstDesc desc = new UDPBurstDesc(null,
               Calendar.getInstance().getTime(),

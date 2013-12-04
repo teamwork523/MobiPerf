@@ -86,6 +86,7 @@ public class Checkin {
 	PhoneUtils phoneUtils;
 	private Thread contextThread;
 	private Vector<MeasurementResult> contextResult;
+	private Object contextResultLock = new Object();
 	/**
 	 * This tread is used for collecting context information in a time interval.
 	 * It collect mobile bytes/packets send/receive during a time interval. It
@@ -150,18 +151,28 @@ public class Checkin {
 				result.addResult("incrementMobileBytesRecv", intervalRecv);
 				result.addResult("incrementMobilePktSend", intervalPktSend);
 				result.addResult("incrementMobilePktRecv", intervalPktRecv);
-				result.addResult("contextMeasurementinterval", interval);
-				contextResult.add(result);
-				if (isBusy == 0) {
-					interval = 5000;
-					try {
-						Thread.sleep(interval);
-					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-				} else {
-					interval = 500;
+				result.addResult("contextMeasurementIntervel", interval);
+				//System.out.println("contextMeasure a result="+MeasurementJsonConvertor.encodeToJson(result));
+				// System.out.println("After insertion size="+contextResult.size());
+				synchronized(contextResultLock) {
+			                contextResult.add(result);				  
+				}
+				//ts4=System.currentTimeMillis();
+				//System.out.println("xxxTotalTime"+(ts4-ts3));
+				//System.out.println("contextMeasure result="+contextResult.toString());
+				if(isBusy==0){
+					//System.out.println("isBusy==0");
+				    interval=5000;				
+				try {
+					Thread.sleep(interval);
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				}
+				else{
+					//System.out.println("isBusy==1");
+				  interval=500;
 					try {
 						Thread.sleep(interval);
 					} catch (InterruptedException e) {
@@ -176,7 +187,9 @@ public class Checkin {
   public Checkin(Context context) {
     phoneUtils = PhoneUtils.getPhoneUtils();
     this.context = context;
-    contextResult = new Vector<MeasurementResult>();
+    synchronized(contextResultLock) {
+      contextResult = new Vector<MeasurementResult>();      
+    }
     if(contextThread == null){
     	contextThread=new Thread(runnable);
     	contextThread.start();
@@ -217,7 +230,7 @@ public class Checkin {
       status.put("manufacturer", info.manufacturer);
       status.put("model", info.model);
       status.put("os", info.os);
-      status.put("properties", 
+      status.put("device_properties", 
           MeasurementJsonConvertor.encodeToJson(phoneUtils.getDeviceProperty()));
       
       Logger.d(status.toString());
@@ -282,6 +295,7 @@ public class Checkin {
       }
     }
     //add context result.
+    synchronized(contextResultLock) {
 	  for (MeasurementResult result : contextResult) { 
 		  try {
 			  //System.out.println("resultArray.size = "+resultArray.length());
@@ -291,6 +305,8 @@ public class Checkin {
 	  result); } }
 	  //System.out.println("contextResult size ="+contextResult.size());
 	  contextResult.clear();
+      
+    }
     
     
     /////
@@ -368,7 +384,7 @@ public class Checkin {
    * Impact of packet sizes on rrc inference results
    * @param sizeData
    */
-  public void updateSizeData(RRCTask.RRCDesc sizeData) {
+  public void updateSizeData(RRCTask.RrcTestData sizeData) {
     DeviceInfo info = phoneUtils.getDeviceInfo();
     String network_id = phoneUtils.getNetwork();
     String[] sizeParameters = sizeData.sizeDataToJSON(network_id, info.deviceId);   
@@ -385,7 +401,7 @@ public class Checkin {
     }
   }  
   
-  public void uploadPhoneResult(RRCTask.RrcTestData data, RRCTask.RRCDesc sizeData) {
+  public void uploadPhoneResult(RRCTask.RrcTestData data, RRCTask.RrcTestData sizeData) {
     String networktype = phoneUtils.getNetwork();
     DeviceInfo info = phoneUtils.getDeviceInfo();
 

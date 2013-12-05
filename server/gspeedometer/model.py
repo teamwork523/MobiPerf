@@ -380,12 +380,12 @@ class RRCStateModel(db.Model):
   network_type = db.StringProperty()
 
 class RRCInferenceRawData(db.Model):
-  """Represents the RRC State model information gathred from the clinet directly"""
+  """Represents the RRC State model information gathred from the client 
+     directly"""
   username = db.UserProperty()
   #device IMEI number
   phone_id = db.StringProperty()
       
-  #TODO: get the description for each property
   test_id = db.IntegerProperty()
 
   timestamp = db.DateTimeProperty()
@@ -401,6 +401,8 @@ class RRCInferenceRawData(db.Model):
   time_delay = db.IntegerProperty()
 
 class RRCInferenceSizesRawData(db.Model):
+  """Represents the data collected on the relationship between round-trip 
+     times and packet sizes for different RRC states"""
   username = db.UserProperty()
   #device IMEI number
   phone_id = db.StringProperty()

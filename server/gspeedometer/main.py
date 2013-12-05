@@ -48,6 +48,7 @@ from gspeedometer.controllers import measurement
 from gspeedometer.controllers import schedule
 from gspeedometer.controllers import timeseries
 import routes
+from gspeedometer import config
 
 m = routes.Mapper()
 m.connect('/',
@@ -154,40 +155,40 @@ m.connect('/admin/archive/cron',
 # New RRCInference START
 # below are the path and handlers for RRC state inference START:
 # for getting computed RRC model from the server
-m.connect('/rrc/getRRCmodel',
-            controller='RRCstates:RRCStates',
-            action='getRRCmodel')
-
-# to upload the raw rrc data to server
-m.connect('/rrc/uploadRRCInference',
-            controller='RRCstates:RRCStates',
-            action='uploadRRCInference')
-
-# to handle taskqueue tasks
-m.connect('/rrc/generateModelWorker',
-            controller='smooth_prototype:ModelBuilder',
-            action='modelBuilder')
-            
-m.connect('/rrc/generateModel',
-            controller='RRCstates:RRCStates',
-            action='generateModel')
-
-m.connect('/rrc/generateModelAll',
-            controller='smooth_prototype:ModelBuilder',
-            action='buildAll')
-
-m.connect('/rrc/debug',
-            controller='smooth_prototype:ModelBuilder',
-            action='debug')
-
-m.connect('/rrc/debugModel',
-            controller='smooth_prototype:ModelBuilder',
-            action='debug_get_models')
-
-m.connect('/rrc/debugSignalStregnth',
-            controller='signal_strength_dependence:SignalStrengthDependence',
-            action='calculateSignalStrengthDependence')
-
+#m.connect('/rrc/getRRCmodel',
+#            controller='RRCstates:RRCStates',
+#            action='getRRCmodel')
+#
+## to upload the raw rrc data to server
+#m.connect('/rrc/uploadRRCInference',
+#            controller='RRCstates:RRCStates',
+#            action='uploadRRCInference')
+#
+## to handle taskqueue tasks
+#m.connect('/rrc/generateModelWorker',
+#            controller='smooth_prototype:ModelBuilder',
+#            action='modelBuilder')
+#            
+#m.connect('/rrc/generateModel',
+#            controller='RRCstates:RRCStates',
+#            action='generateModel')
+#
+#m.connect('/rrc/generateModelAll',
+#            controller='smooth_prototype:ModelBuilder',
+#            action='buildAll')
+#
+#m.connect('/rrc/debug',
+#            controller='smooth_prototype:ModelBuilder',
+#            action='debug')
+#
+#m.connect('/rrc/debugModel',
+#            controller='smooth_prototype:ModelBuilder',
+#            action='debug_get_models')
+#
+#m.connect('/rrc/debugSignalStregnth',
+#            controller='signal_strength_dependence:SignalStrengthDependence',
+#            action='calculateSignalStrengthDependence')
+#
 
 # to upload size data
 m.connect('/rrc/uploadRRCInferenceSizes',
@@ -195,9 +196,9 @@ m.connect('/rrc/uploadRRCInferenceSizes',
             action='uploadRRCSizes')
 
 # anonymous version of the RRC model
-m.connect('/anonymous/rrc/getRRCmodel',
-            controller='RRCstates:RRCStates',
-            action='getRRCmodel')
+#m.connect('/anonymous/rrc/getRRCmodel',
+#            controller='RRCstates:RRCStates',
+#            action='getRRCmodel')
 
 m.connect('/anonymous/rrc/uploadRRCInferenceSizes',
             controller='RRCstates:RRCStates',
@@ -207,17 +208,17 @@ m.connect('/anonymous/rrc/uploadRRCInference',
             controller='RRCstates:RRCStates',
             action='uploadRRCInference')
 
-m.connect('/anonymous/rrc/generateModelWorker',
-            controller='smooth_prototype:ModelBuilder',
-            action='modelBuilder')
-
-m.connect('/anonymous/rrc/generateModelAll',
-            controller='smooth_prototype:ModelBuilder',
-            action='buildAll')
+#m.connect('/anonymous/rrc/generateModelWorker',
+#            controller='smooth_prototype:ModelBuilder',
+#            action='modelBuilder')
+#
+#m.connect('/anonymous/rrc/generateModelAll',
+#            controller='smooth_prototype:ModelBuilder',
+#            action='buildAll')
             
-m.connect('/anonymous/rrc/generateModel',
-            controller='RRCstates:RRCStates',
-            action='generateModel')
+#m.connect('/anonymous/rrc/generateModel',
+#            controller='RRCstates:RRCStates',
+#            action='generateModel')
 
 # A cron job to process RRC data
 m.connect('/cron/rrc/generateModelWorker',

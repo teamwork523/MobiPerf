@@ -94,6 +94,7 @@ def GetMeasurementDictList(device_id, start=None, end=None, anonymize=False,
   measurement_list = measurement_q.fetch(config.QUERY_FETCH_LIMIT)
   # NOTE: this is inefficient and should iterate over a query instead of a list.
   # There is a TODO for this in util.MeasurementListToDictList().
+  # TODO do for RRC data as well
   return util.MeasurementListToDictList(measurement_list, include_fields,
                                          exclude_fields, location_precision)
 

@@ -1,16 +1,15 @@
-/* Copyright 2012 Google Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+/*
+ * Copyright 2012 Google Inc.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
+ * 
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software distributed under the License
+ * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
+ * or implied. See the License for the specific language governing permissions and limitations under
+ * the License.
  */
 package com.mobiperf;
 
@@ -77,122 +76,120 @@ import com.mobiperf.util.PhoneUtils;
  * Handles checkins with the SpeedometerApp server.
  */
 public class Checkin {
-	public static int isBusy = 0;
-	private static final int POST_TIMEOUT_MILLISEC = 20 * 1000;
-	private Context context;
-	private Date lastCheckin;
-	private volatile Cookie authCookie = null;
-	private AccountSelector accountSelector = null;
-	PhoneUtils phoneUtils;
-	private Thread contextThread;
-	private Vector<MeasurementResult> contextResult;
-	private Object contextResultLock = new Object();
-	/**
-	 * This tread is used for collecting context information in a time interval.
-	 * It collect mobile bytes/packets send/receive during a time interval. It
-	 * will adjust the interval length according to how many tasks is currently
-	 * running.
-	 */
-	Thread runnable = new Thread() {
-		public static final String TYPE = "context";
-		public MeasurementResult result;
-		protected ContextMeasurementDesc measurementDesc;
+  public static int isBusy = 0;
+  private static final int POST_TIMEOUT_MILLISEC = 20 * 1000;
+  private Context context;
+  private Date lastCheckin;
+  private volatile Cookie authCookie = null;
+  private AccountSelector accountSelector = null;
+  PhoneUtils phoneUtils;
+  private Thread contextThread;
+  private Vector<MeasurementResult> contextResult;
+  private Object contextResultLock = new Object();
+  /**
+   * This tread is used for collecting context information in a time interval. It collect mobile
+   * bytes/packets send/receive during a time interval. It will adjust the interval length according
+   * to how many tasks is currently running.
+   */
+  Thread runnable = new Thread() {
+    public static final String TYPE = "context";
+    public MeasurementResult result;
+    protected ContextMeasurementDesc measurementDesc;
 
-		public void run() {
-			long prevSend = 0;
-			long prevRecv = 0;
-			long sendBytes = 0;
-			long recvBytes = 0;
-			long intervalSend = 0;
-			long intervalRecv = 0;
+    public void run() {
+      long prevSend = 0;
+      long prevRecv = 0;
+      long sendBytes = 0;
+      long recvBytes = 0;
+      long intervalSend = 0;
+      long intervalRecv = 0;
 
-			long prevPktSend = 0;
-			long prevPktRecv = 0;
-			long sendPkt = 0;
-			long recvPkt = 0;
-			long intervalPktSend = 0;
-			long intervalPktRecv = 0;
-			int interval = 5000;
-			while (true) {
+      long prevPktSend = 0;
+      long prevPktRecv = 0;
+      long sendPkt = 0;
+      long recvPkt = 0;
+      long intervalPktSend = 0;
+      long intervalPktRecv = 0;
+      int interval = 5000;
+      while (true) {
 
-				sendBytes = TrafficStats.getMobileTxBytes();
-				recvBytes = TrafficStats.getMobileRxBytes();
-				sendPkt = TrafficStats.getMobileTxPackets();
-				recvPkt = TrafficStats.getMobileRxPackets();
-				if (prevSend > 0 || prevRecv > 0) {
-					intervalSend = sendBytes - prevSend;
-					intervalRecv = recvBytes - prevRecv;
-				}
-				if (prevPktSend > 0 || prevPktRecv > 0) {
-					intervalPktSend = sendPkt - prevPktSend;
-					intervalPktRecv = recvPkt - prevPktRecv;
-				}
-				prevSend = sendBytes;
-				prevRecv = recvBytes;
-				prevPktSend = sendPkt;
-				prevPktRecv = recvPkt;
-				// Add to result
+        sendBytes = TrafficStats.getMobileTxBytes();
+        recvBytes = TrafficStats.getMobileRxBytes();
+        sendPkt = TrafficStats.getMobileTxPackets();
+        recvPkt = TrafficStats.getMobileRxPackets();
+        if (prevSend > 0 || prevRecv > 0) {
+          intervalSend = sendBytes - prevSend;
+          intervalRecv = recvBytes - prevRecv;
+        }
+        if (prevPktSend > 0 || prevPktRecv > 0) {
+          intervalPktSend = sendPkt - prevPktSend;
+          intervalPktRecv = recvPkt - prevPktRecv;
+        }
+        prevSend = sendBytes;
+        prevRecv = recvBytes;
+        prevPktSend = sendPkt;
+        prevPktRecv = recvPkt;
+        // Add to result
 
-				PhoneUtils phoneUtils = PhoneUtils.getPhoneUtils();
-				Map<String, String> params = new HashMap<String, String>();
+        PhoneUtils phoneUtils = PhoneUtils.getPhoneUtils();
+        Map<String, String> params = new HashMap<String, String>();
 
-				measurementDesc = new ContextMeasurementDesc("context", null,
-						Calendar.getInstance().getTime(), null,
-						Config.DEFAULT_USER_MEASUREMENT_INTERVAL_SEC,
-						Config.DEFAULT_USER_MEASUREMENT_COUNT,
-						MeasurementTask.USER_PRIORITY, params);
+        measurementDesc =
+            new ContextMeasurementDesc("context", null, Calendar.getInstance()
+                .getTime(), null, Config.DEFAULT_USER_MEASUREMENT_INTERVAL_SEC,
+                Config.DEFAULT_USER_MEASUREMENT_COUNT,
+                MeasurementTask.USER_PRIORITY, params);
 
-				MeasurementResult result = new MeasurementResult(
-						phoneUtils.getDeviceInfo().deviceId, null, "context",
-						System.currentTimeMillis() * 1000, true,
-						measurementDesc);
-				result.addResult("rssi", phoneUtils.getCurrentRssi());
-				result.addResult("incrementMobileBytesSend", intervalSend);
-				result.addResult("incrementMobileBytesRecv", intervalRecv);
-				result.addResult("incrementMobilePktSend", intervalPktSend);
-				result.addResult("incrementMobilePktRecv", intervalPktRecv);
-				result.addResult("contextMeasurementIntervel", interval);
-				//System.out.println("contextMeasure a result="+MeasurementJsonConvertor.encodeToJson(result));
-				// System.out.println("After insertion size="+contextResult.size());
-				synchronized(contextResultLock) {
-			                contextResult.add(result);				  
-				}
-				//ts4=System.currentTimeMillis();
-				//System.out.println("xxxTotalTime"+(ts4-ts3));
-				//System.out.println("contextMeasure result="+contextResult.toString());
-				if(isBusy==0){
-					//System.out.println("isBusy==0");
-				    interval=5000;				
-				try {
-					Thread.sleep(interval);
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				}
-				else{
-					//System.out.println("isBusy==1");
-				  interval=500;
-					try {
-						Thread.sleep(interval);
-					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-				}
-			}
-		}
-	};
+        MeasurementResult result =
+            new MeasurementResult(phoneUtils.getDeviceInfo().deviceId, null,
+                "context", System.currentTimeMillis() * 1000, true,
+                measurementDesc);
+        result.addResult("rssi", phoneUtils.getCurrentRssi());
+        result.addResult("incrementMobileBytesSend", intervalSend);
+        result.addResult("incrementMobileBytesRecv", intervalRecv);
+        result.addResult("incrementMobilePktSend", intervalPktSend);
+        result.addResult("incrementMobilePktRecv", intervalPktRecv);
+        result.addResult("contextMeasurementIntervel", interval);
+        // System.out.println("contextMeasure a result="+MeasurementJsonConvertor.encodeToJson(result));
+        // System.out.println("After insertion size="+contextResult.size());
+        synchronized (contextResultLock) {
+          contextResult.add(result);
+        }
+        // ts4=System.currentTimeMillis();
+        // System.out.println("xxxTotalTime"+(ts4-ts3));
+        // System.out.println("contextMeasure result="+contextResult.toString());
+        if (isBusy == 0) {
+          // System.out.println("isBusy==0");
+          interval = 5000;
+          try {
+            Thread.sleep(interval);
+          } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+          }
+        } else {
+          // System.out.println("isBusy==1");
+          interval = 500;
+          try {
+            Thread.sleep(interval);
+          } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+          }
+        }
+      }
+    }
+  };
 
   public Checkin(Context context) {
     phoneUtils = PhoneUtils.getPhoneUtils();
     this.context = context;
-    synchronized(contextResultLock) {
-      contextResult = new Vector<MeasurementResult>();      
+    synchronized (contextResultLock) {
+      contextResult = new Vector<MeasurementResult>();
     }
-    if(contextThread == null){
-    	contextThread=new Thread(runnable);
-    	contextThread.start();
+    if (contextThread == null) {
+      contextThread = new Thread(runnable);
+      contextThread.start();
     }
   }
 
@@ -202,43 +199,44 @@ public class Checkin {
       this.accountSelector.shutDown();
     }
   }
-  
+
   /** Return a fake authentication cookie for a test server instance */
   private Cookie getFakeAuthCookie() {
-    BasicClientCookie cookie = new BasicClientCookie(
-        "dev_appserver_login",
-        "test@nobody.com:False:185804764220139124118");
+    BasicClientCookie cookie =
+        new BasicClientCookie("dev_appserver_login",
+            "test@nobody.com:False:185804764220139124118");
     cookie.setDomain(".google.com");
     cookie.setVersion(1);
     cookie.setPath("/");
     cookie.setSecure(false);
     return cookie;
   }
-  
+
   public Date lastCheckinTime() {
     return this.lastCheckin;
   }
-  
+
   public List<MeasurementTask> checkin() throws IOException {
     Logger.i("Checkin.checkin() called");
     boolean checkinSuccess = false;
     try {
       JSONObject status = new JSONObject();
       DeviceInfo info = phoneUtils.getDeviceInfo();
-      // TODO(Wenjie): There is duplicated info here, such as device ID. 
+      // TODO(Wenjie): There is duplicated info here, such as device ID.
       status.put("id", info.deviceId);
       status.put("manufacturer", info.manufacturer);
       status.put("model", info.model);
       status.put("os", info.os);
-      status.put("device_properties", 
-          MeasurementJsonConvertor.encodeToJson(phoneUtils.getDeviceProperty()));
-      
+      status
+          .put("device_properties", MeasurementJsonConvertor
+              .encodeToJson(phoneUtils.getDeviceProperty()));
+
       Logger.d(status.toString());
       sendStringMsg("Checking in");
-      
+
       String result = serviceRequest("checkin", status.toString());
       Logger.d("Checkin result: " + result);
-      
+
       // Parse the result
       Vector<MeasurementTask> schedule = new Vector<MeasurementTask>();
       JSONArray jsonArray = new JSONArray(result);
@@ -248,13 +246,15 @@ public class Checkin {
         Logger.d("Parsing index " + i);
         JSONObject json = jsonArray.optJSONObject(i);
         Logger.d("Value is " + json);
-        // checkin task must support 
-        if (json != null && 
-            MeasurementTask.getMeasurementTypes().contains(json.get("type"))) {
+        // checkin task must support
+        if (json != null
+            && MeasurementTask.getMeasurementTypes().contains(json.get("type"))) {
           try {
-            MeasurementTask task = 
-                MeasurementJsonConvertor.makeMeasurementTaskFromJson(json, this.context);
-            Logger.i(MeasurementJsonConvertor.toJsonString(task.measurementDesc));
+            MeasurementTask task =
+                MeasurementJsonConvertor.makeMeasurementTaskFromJson(json,
+                    this.context);
+            Logger.i(MeasurementJsonConvertor
+                .toJsonString(task.measurementDesc));
             schedule.add(task);
           } catch (IllegalArgumentException e) {
             Logger.w("Could not create task from JSON: " + e);
@@ -262,10 +262,9 @@ public class Checkin {
           }
         }
       }
-      
+
       this.lastCheckin = new Date();
-      Logger.i("Checkin complete, got " + schedule.size() +
-          " new tasks");
+      Logger.i("Checkin complete, got " + schedule.size() + " new tasks");
       checkinSuccess = true;
       return schedule;
     } catch (JSONException e) {
@@ -282,10 +281,10 @@ public class Checkin {
       }
     }
   }
-  
+
 
   public void uploadMeasurementResult(Vector<MeasurementResult> finishedTasks)
-      throws IOException {    
+      throws IOException {
     JSONArray resultArray = new JSONArray();
     for (MeasurementResult result : finishedTasks) {
       try {
@@ -294,25 +293,28 @@ public class Checkin {
         Logger.e("Error when adding " + result);
       }
     }
-    //add context result.
-    synchronized(contextResultLock) {
-	  for (MeasurementResult result : contextResult) { 
-		  try {
-			  //System.out.println("resultArray.size = "+resultArray.length());
-			  System.out.println("context jason="+MeasurementJsonConvertor.encodeToJson(result));
-	  resultArray.put(MeasurementJsonConvertor.encodeToJson(result)); }
-	  catch (JSONException e1) { Logger.e("Error when adding context " +
-	  result); } }
-	  //System.out.println("contextResult size ="+contextResult.size());
-	  contextResult.clear();
-      
+    // add context result.
+    synchronized (contextResultLock) {
+      for (MeasurementResult result : contextResult) {
+        try {
+          // System.out.println("resultArray.size = "+resultArray.length());
+          System.out.println("context jason="
+              + MeasurementJsonConvertor.encodeToJson(result));
+          resultArray.put(MeasurementJsonConvertor.encodeToJson(result));
+        } catch (JSONException e1) {
+          Logger.e("Error when adding context " + result);
+        }
+      }
+      // System.out.println("contextResult size ="+contextResult.size());
+      contextResult.clear();
+
     }
-    
-    
-    /////
+
+
+    // ///
     sendStringMsg("Uploading " + resultArray.length() + " measurement results.");
-    Logger.i("TaskSchedule.uploadMeasurementResult() uploading: " + 
-        resultArray.toString());
+    Logger.i("TaskSchedule.uploadMeasurementResult() uploading: "
+        + resultArray.toString());
     String response = serviceRequest("postmeasurement", resultArray.toString());
     try {
       JSONObject responseJson = new JSONObject(response);
@@ -326,6 +328,10 @@ public class Checkin {
     sendStringMsg("Result upload complete.");
   }
 
+  /**
+   * This is necessary to avoid a rare bug where the RRC task may attempt to access accountSelected
+   * early
+   */
   public void initializeForRRC() {
     Logger.w("Fetching cookie...");
     getCookie();
@@ -333,7 +339,8 @@ public class Checkin {
     int retry_len = 1000;
     for (int i = 0; i < NUM_RETRIES; i++) {
       try {
-        if (accountSelector != null && authCookie!= null && accountSelector.getCheckinFuture() != null) {
+        if (accountSelector != null && authCookie != null
+            && accountSelector.getCheckinFuture() != null) {
           Logger.w("Cookie fetched!");
           return;
         }
@@ -343,7 +350,7 @@ public class Checkin {
       }
     }
   }
-  
+
 
   /**
    * Send the RRC data to the server in order to update the model.
@@ -351,14 +358,14 @@ public class Checkin {
    * This is the only place the model gets updated
    * 
    * @param data
-   * @throws IOException 
+   * @throws IOException
    */
   public void updateModel(RRCTask.RrcTestData data) throws IOException {
     DeviceInfo info = phoneUtils.getDeviceInfo();
     String network_id = phoneUtils.getNetwork();
     String[] parameters = data.toJSON(network_id, info.deviceId);
     try {
-      for (String parameter: parameters) {
+      for (String parameter : parameters) {
         Logger.w("Uploading RRC raw data: " + parameter);
         String response = serviceRequest("rrc/uploadRRCInference", parameter);
         Logger.w("Response from GAE: " + response);
@@ -367,9 +374,10 @@ public class Checkin {
         sendStringMsg("Result upload complete.");
       }
       JSONObject parameter = new JSONObject();
-      parameter.put("phone_id",  info.deviceId);
+      parameter.put("phone_id", info.deviceId);
       Logger.w("Trigger server to generate the model: " + parameter);
-      String response = serviceRequest("rrc/generateModel", parameter.toString());
+      String response =
+          serviceRequest("rrc/generateModel", parameter.toString());
       Logger.w("Response from GAE: " + response);
     } catch (IOException e) {
       throw new IOException(e.getMessage());
@@ -379,39 +387,43 @@ public class Checkin {
       e.printStackTrace();
     }
   }
-  
+
   /**
    * Impact of packet sizes on rrc inference results
+   * 
    * @param sizeData
    */
   public void updateSizeData(RRCTask.RrcTestData sizeData) {
     DeviceInfo info = phoneUtils.getDeviceInfo();
     String network_id = phoneUtils.getNetwork();
-    String[] sizeParameters = sizeData.sizeDataToJSON(network_id, info.deviceId);   
-    
+    String[] sizeParameters =
+        sizeData.sizeDataToJSON(network_id, info.deviceId);
+
     try {
-      for (String parameter: sizeParameters) {
+      for (String parameter : sizeParameters) {
         Logger.w("Uploading RRC size data: " + parameter);
-        String response = serviceRequest("rrc/uploadRRCInferenceSizes", parameter);
+        String response =
+            serviceRequest("rrc/uploadRRCInferenceSizes", parameter);
         Logger.w("Response from GAE: " + response);
       }
     } catch (IOException e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
-  }  
-  
-  public void uploadPhoneResult(RRCTask.RrcTestData data, RRCTask.RrcTestData sizeData) {
+  }
+
+  public void uploadPhoneResult(RRCTask.RrcTestData data,
+      RRCTask.RrcTestData sizeData) {
     String networktype = phoneUtils.getNetwork();
     DeviceInfo info = phoneUtils.getDeviceInfo();
 
     String[] parameters = data.toJSON(networktype, info.deviceId);
-    String[] sizeParameters = sizeData.sizeDataToJSON(networktype, info.deviceId);
+    String[] sizeParameters =
+        sizeData.sizeDataToJSON(networktype, info.deviceId);
 
     try {
-      for (String parameter: parameters) {
-        String response = serviceRequest("postphonemeasurement",
-                                         parameter);
+      for (String parameter : parameters) {
+        String response = serviceRequest("postphonemeasurement", parameter);
         JSONObject responseJson = new JSONObject(response);
         if (!responseJson.getBoolean("success")) {
           Logger.e("Failure posting phone measurement result");
@@ -421,7 +433,7 @@ public class Checkin {
       Logger.e("JSON exception while uploading measurement result");
     } catch (IOException e) {
       Logger.e("IO exception while uploading measurement result");
-    }       
+    }
   }
 
   /**
@@ -453,7 +465,7 @@ public class Checkin {
         }
       };
 
-      sslContext.init(null, new TrustManager[] { tm }, null);
+      sslContext.init(null, new TrustManager[] {tm}, null);
     }
 
     @Override
@@ -484,7 +496,7 @@ public class Checkin {
       HttpParams params = new BasicHttpParams();
       HttpProtocolParams.setVersion(params, HttpVersion.HTTP_1_1);
       HttpProtocolParams.setContentCharset(params, HTTP.UTF_8);
-      
+
       HttpConnectionParams.setConnectionTimeout(params, POST_TIMEOUT_MILLISEC);
       HttpConnectionParams.setSoTimeout(params, POST_TIMEOUT_MILLISEC);
 
@@ -493,14 +505,14 @@ public class Checkin {
           .getSocketFactory(), 80));
       registry.register(new Scheme("https", sf, 443));
 
-      ClientConnectionManager ccm = new ThreadSafeClientConnManager(params,
-          registry);
+      ClientConnectionManager ccm =
+          new ThreadSafeClientConnManager(params, registry);
       client = new DefaultHttpClient(ccm, params);
     } catch (Exception e) {
       Logger.w("Unable to create SSL HTTP client", e);
       client = new DefaultHttpClient();
     }
-    
+
     // TODO(mdw): For some reason this is not sending the cookie to the
     // test server, probably because the cookie itself is not properly
     // initialized. Below I manually set the Cookie header instead.
@@ -509,10 +521,10 @@ public class Checkin {
     client.setCookieStore(store);
     return client;
   }
-  
-  public String serviceRequest(String url, String jsonString) 
+
+  public String serviceRequest(String url, String jsonString)
       throws IOException {
-    
+
     if (this.accountSelector == null) {
       accountSelector = new AccountSelector(context);
     }
@@ -525,14 +537,15 @@ public class Checkin {
         }
       }
     }
-    
+
     HttpClient client = getNewHttpClient();
-    String fullurl = (accountSelector.isAnonymous() ?
-                      phoneUtils.getAnonymousServerUrl() :
-                      phoneUtils.getServerUrl()) + "/" + url;
+    String fullurl =
+        (accountSelector.isAnonymous()
+            ? phoneUtils.getAnonymousServerUrl()
+            : phoneUtils.getServerUrl()) + "/" + url;
     Logger.i("Checking in to " + fullurl);
     HttpPost postMethod = new HttpPost(fullurl);
-    
+
     StringEntity se;
     try {
       se = new StringEntity(jsonString);
@@ -544,7 +557,8 @@ public class Checkin {
     postMethod.setHeader("Content-type", "application/json");
     if (!accountSelector.isAnonymous()) {
       // TODO(mdw): This should not be needed
-      postMethod.setHeader("Cookie", authCookie.getName() + "=" + authCookie.getValue());
+      postMethod.setHeader("Cookie",
+          authCookie.getName() + "=" + authCookie.getValue());
     }
 
     ResponseHandler<String> responseHandler = new BasicResponseHandler();
@@ -552,10 +566,10 @@ public class Checkin {
     String result = client.execute(postMethod, responseHandler);
     return result;
   }
-  
+
   /**
-   * Initiates the process to get the authentication cookie for the user account.
-   * Returns immediately.
+   * Initiates the process to get the authentication cookie for the user account. Returns
+   * immediately.
    */
   public synchronized void getCookie() {
     if (phoneUtils.isTestingServer(phoneUtils.getServerUrl())) {
@@ -566,7 +580,7 @@ public class Checkin {
     if (this.accountSelector == null) {
       accountSelector = new AccountSelector(context);
     }
-    
+
     try {
       // Authenticates if there are no ongoing ones
       if (accountSelector.getCheckinFuture() == null) {
@@ -580,7 +594,7 @@ public class Checkin {
       Logger.e("Unable to get auth cookie", e);
     }
   }
-  
+
   /**
    * Resets the checkin variables in AccountSelector
    * */
@@ -588,7 +602,7 @@ public class Checkin {
     accountSelector.resetCheckinFuture();
     accountSelector.setAuthImmediately(false);
   }
-  
+
   private synchronized boolean checkGetCookie() {
     if (phoneUtils.isTestingServer(phoneUtils.getServerUrl())) {
       authCookie = getFakeAuthCookie();
@@ -616,9 +630,9 @@ public class Checkin {
       return false;
     }
   }
-  
+
   private void sendStringMsg(String str) {
     UpdateIntent intent = new UpdateIntent(str, UpdateIntent.MSG_ACTION);
-    context.sendBroadcast(intent);    
+    context.sendBroadcast(intent);
   }
 }
